@@ -7,10 +7,10 @@ import {
   ScatterChart, Scatter, ZAxis, Cell, LabelList,
 } from "recharts";
 
-const PALETTE = ["#eb5757", "#2d9cdb", "#27ae60", "#9b51e0", "#f2994a", "#56ccf2", "#bb6bd9", "#eb9757"];
-const axis = { fill: "#5b6573", fontSize: 12 };
-const GRID = "#e4e8ef";
-const AXIS_LINE = "#d2d9e3";
+const PALETTE = ["#00bcd4", "#7c8cf8", "#34d399", "#f2994a", "#bb6bd9", "#56ccf2", "#ff6b9d", "#ffd166"];
+const axis = { fill: "#9aa1ab", fontSize: 12 };
+const GRID = "#333333";
+const AXIS_LINE = "#3a3a3a";
 
 export default function Dashboard({ onExplain }: { onExplain: (group: string) => void }) {
   const [d, setD] = useState<DashboardData | null>(null);
@@ -56,7 +56,7 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
             <Tooltip {...tt} formatter={(v: any, _n, p: any) => [`${v}%  (${p.payload.pass}/${p.payload.n})`, "pass"]} />
             <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
               {d.byModel.map((m) => <Cell key={m.model_id} fill={colorOf(m.model_id)} />)}
-              <LabelList dataKey="pct" position="right" fill="#2c2c2c" fontSize={12} formatter={(v: any) => `${v}%`} />
+              <LabelList dataKey="pct" position="right" fill="#ececec" fontSize={12} formatter={(v: any) => `${v}%`} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -80,7 +80,7 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
               labelFormatter={() => ""} />
             <Scatter data={bubble}>
               {bubble.map((b) => <Cell key={b.name} fill={colorOf(b.name)} fillOpacity={0.8} />)}
-              <LabelList dataKey="name" position="top" fill="#2c2c2c" fontSize={11} fontWeight={500} />
+              <LabelList dataKey="name" position="top" fill="#ececec" fontSize={11} fontWeight={500} />
             </Scatter>
           </ScatterChart>
         </ResponsiveContainer>
@@ -96,7 +96,7 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
             <YAxis type="category" dataKey="task_group" tick={axis} stroke={GRID} width={90} />
             <Tooltip {...tt} formatter={(v: any) => [`${v}%`, "pass"]} />
             <Bar dataKey="pct" radius={[0, 4, 4, 0]} fill="#39c5cf">
-              <LabelList dataKey="pct" position="right" fill="#2c2c2c" fontSize={12} formatter={(v: any) => `${v}%`} />
+              <LabelList dataKey="pct" position="right" fill="#ececec" fontSize={12} formatter={(v: any) => `${v}%`} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -117,7 +117,7 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
                   {groups.map((g) => {
                     const c = cell(m, g);
                     return (
-                      <td key={g} style={c ? { background: `rgba(39,174,96,${(c.pct / 100) * 0.8 + 0.08})`, textAlign: "center", color: c.pct > 55 ? "#fff" : "#2c2c2c", fontWeight: 600, borderRadius: 8 } : { textAlign: "center" }}
+                      <td key={g} style={c ? { background: `rgba(52,211,153,${(c.pct / 100) * 0.82 + 0.06})`, textAlign: "center", color: c.pct > 48 ? "#06281c" : "#ececec", fontWeight: 600, borderRadius: 6 } : { textAlign: "center" }}
                         title={c ? `${c.pass}/${c.n}${c.avg_tok_s ? ` · ${c.avg_tok_s} t/s` : ""}` : "no data"}>
                         {c ? `${c.pct}%` : "—"}
                       </td>
@@ -134,8 +134,8 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
 }
 
 const tt = {
-  contentStyle: { background: "#fff", border: "1px solid #dde3ec", borderRadius: 12, color: "#2c2c2c", boxShadow: "0 8px 24px -8px rgba(45,44,44,0.18)" },
-  labelStyle: { color: "#2c2c2c" },
+  contentStyle: { background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, color: "#ececec", fontFamily: "JetBrains Mono, monospace", fontSize: 12 },
+  labelStyle: { color: "#ececec" },
 };
 
 function Stat({ label, value }: { label: string; value: number }) {

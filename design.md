@@ -1,68 +1,73 @@
-# Design System: Neumorphic Tech Schematic
+# Design System: Portfolio Dev Full-Stack
 
 ## 1. Definição do Estilo
 
-- **Nome:** Neumorphic Tech Schematic
-- **Tipo:** Professional, Informative, Sleek
-- **Keywords:** neumorphic, schematic, tech, soft, shadows, gradient, flow, hub, spoke
-- **Era:** Modern Tech
-- **Light/Dark:** ✓ Full / ◐ Part
+- **Nome:** Portfolio Dev Full-Stack
+- **Tipo:** Minimal, Dark, Professional
+- **Keywords:** developer portfolio, full-stack, projects gallery, clean layout, minimal, dark and cyan, code, tech stack, personal brand
+- **Era:** 2020s Developer
+- **Light/Dark:** ✗ No / ✓ Full
 
 ## 2. Paleta de Cores
 
-- **Primárias:** Background #F4F6F8, Text #2C2C2C, Accent #EB5757
-- **Secundárias:** Shadow Light #FFFFFF, Shadow Dark #D1D9E6, Flow Line #EB5757
+- **Primárias:** Black #000000, Dark Grey #1A1A1A, Cyan #00BCD4
+- **Secundárias:** White #FFFFFF, Light Grey #E0E0E0, Charcoal #333333
 
 ## 3. Efeitos Visuais
 
-Soft circular containers, smooth matte digital surface, soft diffuse ambient lighting, gentle drop shadows (neumorphic effect).
+Layout duas colunas desktop (bio/projetos), cards de projetos com tech stack badges, hover com underline animado e escala suave, CSS grid/flex para galeria.
 
 ## 4. AI Prompt Keywords
 
-neumorphic landing page, soft ui, tech schematic, light background, soft shadows, clean layout, hub and spoke design.
+developer portfolio, full-stack, projects gallery, clean layout, minimal, dark and cyan, code, tech stack, personal brand.
 
 ## 5. CSS Technical
 
 ```css
-background-color: #F4F6F8; color: #2C2C2C; font-family: 'Roboto', sans-serif; box-shadow: 10px 10px 20px #D1D9E6, -10px -10px 20px #FFFFFF; border-radius: 20px;
+background: #1A1A1A, color: #FFFFFF, border-radius: 8px, box-shadow: 0 2px 10px rgba(0,0,0,0.3), font-family: 'JetBrains Mono, monospace', accent color: #00BCD4, animated underline on hover, tech badges with border.
 ```
 
 ## 6. Design System Variables
 
 ```css
---bg-light: #F4F6F8, --text-dark: #2C2C2C, --accent-red: #EB5757, --shadow-neu-dark: #D1D9E6, --shadow-neu-light: #FFFFFF
+--black: #000000, --dark-bg: #1A1A1A, --cyan: #00BCD4, --white: #FFFFFF, --radius-card: 8px, --font-dev: 'JetBrains Mono, monospace'.
 ```
 
 ## 7. Checklist de Implementação
 
-- ☐ Neumorphic shadows (light/dark interact)
-- ☐ Soft rounded corners
-- ☐ Central hub layout
-- ☐ Gradient flow lines
-- ☐ Minimalist icons
+- ☐ Navbar + Hero (bio + CTA)
+- ☐ Projetos + Stack/Skills
+- ☐ Experiência + Depoimentos
+- ☐ CTA 'Fale comigo'
+- ☐ Meta tags SEO
+- ☐ Background escuro legível
+- ☐ Microinterações discretas
+- ☐ Ícones SVG (Git
+- terminal
+- frameworks).
 
 ## 8. Visual Theme & Atmosphere
 
-Neumorphic Tech Schematic — Design technical com neumorphic, schematic, tech. Template e prompt pronto para IA. Estilo Neumorphic Tech Schematic representa uma tendência moderna em design UI/UX web com foco em technical.
+Portfolio Dev Full-Stack — Design thematic com developer portfolio, full-stack, projects gallery. Template e prompt pronto para IA. Estilo Portfolio Dev Full-Stack representa uma tendência moderna em design UI/UX web com foco em thematic.
 
-- Density: 5/10 — Balanced
-- Variance: 4/10 — Moderate
+- Density: 3/10 — Airy
+- Variance: 3/10 — Restrained
 - Motion: 4/10 — Subtle
 
 ## 9. Color Palette & Roles
 
-- **Background** (#F4F6F8) — Primary background surface
-- **Text** (#2C2C2C) — Primary text color
-- **Accent** (#EB5757) — Primary accent, CTAs and interactive elements
-- **Shadow Light** (#FFFFFF) — Extended palette, decorative use
-- **Shadow Dark** (#D1D9E6) — Deep contrast surface
-- **Flow Line** (#EB5757) — Extended palette, decorative use
+- **Black** (#000000) — Dark surface, primary background
+- **Dark Grey** (#1A1A1A) — Dark surface, primary background
+- **Cyan** (#00BCD4) — Accent highlight, links and focus states
+- **White** (#FFFFFF) — Secondary surface
+- **Light Grey** (#E0E0E0) — Secondary text, borders, muted elements
+- **Charcoal** (#333333) — Deep contrast surface
 
 ## 10. Typography Rules
 
-- **Display / Hero:** Roboto — Weight 700, tight tracking, used for headline impact
-- **Body:** Roboto — Weight 400, 16px/1.6 line-height, max 72ch per line
-- **UI Labels / Captions:** Roboto — 0.875rem, weight 500, slight letter-spacing
+- **Display / Hero:** JetBrains Mono — Weight 700, tight tracking, used for headline impact
+- **Body:** JetBrains Mono — Weight 400, 16px/1.6 line-height, max 72ch per line
+- **UI Labels / Captions:** JetBrains Mono — 0.875rem, weight 500, slight letter-spacing
 - **Monospace:** JetBrains Mono — Used for code, metadata, and technical values
 
 Scale:
@@ -74,9 +79,9 @@ Scale:
 
 ## 11. Component Stylings
 
-- **Primary Button:** Rounded (20px) shape. Accent color fill. Hover: 8% darken + subtle lift shadow. Active: -1px translate tactile press. Font weight 600. No outer glows.
+- **Primary Button:** Rounded (8px) shape. Accent color fill. Hover: 8% darken + subtle lift shadow. Active: -1px translate tactile press. Font weight 600. No outer glows.
 - **Secondary / Ghost Button:** Outline variant. 1.5px border in muted color. Text in primary color. Hover: subtle background fill.
-- **Cards:** Rounded (20px) corners. Surface background. Subtle shadow (0 2px 12px rgba(0,0,0,0.06)). 1px border stroke.
+- **Cards:** Rounded (8px) corners. Surface background. Subtle shadow (0 2px 12px rgba(0,0,0,0.06)). 1px border stroke.
 - **Inputs:** Label above input. 1px border stroke. Focus ring: 2px accent color offset 2px. Error text below in semantic red. No floating labels.
 - **Navigation:** Primary surface background. Active item: accent color indicator. Font weight 500 when active.
 - **Skeletons:** Shimmer animation matching component dimensions. No circular spinners.
@@ -103,7 +108,9 @@ Scale:
 ## 14. Anti-Patterns (Banned)
 
 - No emojis in UI — use icon system only (Lucide, Heroicons)
-- No pure black (#000000) — use off-black or charcoal variants
+- No decorative gradients — flat color only
+- No shadows heavier than 0 2px 8px rgba(0,0,0,0.08)
+- No pure white (#FFFFFF) backgrounds — use off-white or dark surfaces
 - No oversaturated accent colors (saturation cap: 80%)
 - No 3-column equal-width feature layouts — use zig-zag or asymmetric grid
 - No `h-screen` — use `min-h-[100dvh]`
@@ -113,7 +120,7 @@ Scale:
 
 ## Contexto Histórico
 
-Estilo Neumorphic Tech Schematic representa uma tendência moderna em design UI/UX web com foco em technical.
+Estilo Portfolio Dev Full-Stack representa uma tendência moderna em design UI/UX web com foco em thematic.
 
 ## Caso de Uso
 

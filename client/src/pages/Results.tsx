@@ -115,7 +115,7 @@ export default function Results({ onReview, onExplain }: { onReview: (id: number
                           <td colSpan={6} style={{ background: "var(--bg)" }}>
                             {promptOf(r) && (<><div className="muted" style={{ fontSize: 12 }}>Prompt</div><pre className="mono" style={{ fontSize: 12, marginBottom: 8 }}>{promptOf(r)}</pre></>)}
                             <div className="muted" style={{ fontSize: 12 }}>{r.passed == null ? "Result" : r.passed ? "Passed because" : "Failed because"}</div>
-                            <pre className="mono" style={{ fontSize: 12, marginBottom: 8, color: r.passed === 0 ? "var(--red)" : "var(--fg)" }}>{r.detail || "—"}</pre>
+                            <pre className="mono" style={{ fontSize: 12, marginBottom: 8, color: r.passed === 0 ? "var(--red)" : "var(--text)" }}>{r.detail || "—"}</pre>
                             <div className="muted" style={{ fontSize: 12 }}>Model output</div>
                             <pre className="mono" style={{ fontSize: 12, maxHeight: 300, overflow: "auto" }}>{r.output || "(empty)"}</pre>
                           </td>
