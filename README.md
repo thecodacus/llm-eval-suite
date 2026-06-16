@@ -16,16 +16,18 @@ Every run records correctness **and** speed (tok/s).
 
 ## Run it (server)
 ```bash
-docker compose pull && docker compose up -d
-# open http://<your-server>:8080
+docker compose up -d                 # defaults to port 8080
+PORT=9000 docker compose up -d        # or pick any port
+# open http://<your-server>:<PORT>
 ```
-SQLite lives in the `eval-data` volume (`/data/evals.db`). Models you add and
-runs you make persist across restarts. The container can reach model servers on
-the host via `host.docker.internal` (wired up in `docker-compose.yml`).
+The port is set by the **`PORT`** env var (default `8080`) — it controls both the
+container's listen port and the published host port. SQLite lives in the `eval-data`
+volume (`/data/evals.db`); models you add and runs you make persist across restarts.
+The container can reach model servers on the host via `host.docker.internal`.
 
-Or pull directly:
+Or pull directly (set the port on both sides):
 ```bash
-docker run -d -p 8080:8080 -v eval-data:/data \
+docker run -d -e PORT=9000 -p 9000:9000 -v eval-data:/data \
   --add-host host.docker.internal:host-gateway \
   ghcr.io/thecodacus/llm-eval-suite:latest
 ```
@@ -40,8 +42,10 @@ services:
   llm-eval-suite:
     image: ghcr.io/thecodacus/llm-eval-suite:latest
     container_name: llm-eval-suite
+    environment:
+      - PORT=${PORT:-8080}                   # the app listens on this port
     ports:
-      - "8080:8080"          # change the left side to use another host port
+      - "${PORT:-8080}:${PORT:-8080}"
     volumes:
       - eval-data:/data      # SQLite db persists here
     restart: unless-stopped
@@ -51,6 +55,10 @@ services:
 volumes:
   eval-data:
 ```
+
+**Changing the port:** in Portainer, add an environment variable **`PORT`** (e.g. `9000`)
+in the stack's *Environment variables* section before deploying — it drives both the
+container's listen port and the published port. Leave it unset to use `8080`.
 
 Notes:
 - **Reaching your models:** point each model's `base_url` (in the Models tab) at

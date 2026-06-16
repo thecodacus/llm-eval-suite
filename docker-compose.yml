@@ -1,12 +1,15 @@
 # Pull the CI-built image and run it on your server.
-#   docker compose pull && docker compose up -d
-# Then open http://<your-server>:8080
+#   PORT=9000 docker compose up -d        # or set PORT in a .env file
+#   docker compose up -d                   # defaults to 8080
+# Then open http://<your-server>:${PORT}
 services:
   llm-eval-suite:
     image: ghcr.io/thecodacus/llm-eval-suite:latest
     container_name: llm-eval-suite
+    environment:
+      - PORT=${PORT:-8080}     # the app listens on this port
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:${PORT:-8080}"
     volumes:
       - eval-data:/data        # SQLite db persists here
     restart: unless-stopped
