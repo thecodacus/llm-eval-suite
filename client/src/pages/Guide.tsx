@@ -94,7 +94,7 @@ function Detail({ group, items, onBack }: { group: string; items: Item[]; onBack
         <p>{gg.whatItChecks}</p>
       </div>
 
-      <div className="panel" style={{ boxShadow: "var(--neu-raised), inset 0 0 0 2px var(--green-soft)" }}>
+      <div className="panel" style={{ borderLeft: "3px solid var(--green)", background: "var(--green-soft)" }}>
         <h2 className="sm"><Icon name="badge-check" style={{ color: "var(--green)" }} /> What a high score means for you</h2>
         <p style={{ fontSize: 15 }}>{gg.highScoreMeans}</p>
         {gg.examples.length > 0 && (
@@ -107,7 +107,7 @@ function Detail({ group, items, onBack }: { group: string; items: Item[]; onBack
         )}
       </div>
 
-      <div className="panel" style={{ boxShadow: "var(--neu-raised), inset 0 0 0 2px var(--accent-soft)" }}>
+      <div className="panel" style={{ borderLeft: "3px solid var(--accent)", background: "var(--accent-soft)" }}>
         <h2 className="sm"><Icon name="target" style={{ color: "var(--accent)" }} /> Is this score relevant to you?</h2>
         <p>{gg.relevance}</p>
       </div>

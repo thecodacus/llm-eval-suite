@@ -8,9 +8,9 @@ import {
 } from "recharts";
 
 const PALETTE = ["#eb5757", "#2d9cdb", "#27ae60", "#9b51e0", "#f2994a", "#56ccf2", "#bb6bd9", "#eb9757"];
-const axis = { fill: "#8a92a6", fontSize: 12 };
-const GRID = "#dde3ec";
-const AXIS_LINE = "#cdd5e1";
+const axis = { fill: "#5b6573", fontSize: 12 };
+const GRID = "#e4e8ef";
+const AXIS_LINE = "#d2d9e3";
 
 export default function Dashboard({ onExplain }: { onExplain: (group: string) => void }) {
   const [d, setD] = useState<DashboardData | null>(null);
