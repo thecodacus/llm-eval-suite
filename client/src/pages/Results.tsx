@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, LbRow, Result, Run } from "../api";
 
-export default function Results({ onReview }: { onReview: (id: number) => void }) {
+export default function Results({ onReview, onExplain }: { onReview: (id: number) => void; onExplain: (group: string) => void }) {
   const [runs, setRuns] = useState<Run[]>([]);
   const [sel, setSel] = useState<number | null>(null);
   const [run, setRun] = useState<Run | null>(null);
@@ -57,8 +57,13 @@ export default function Results({ onReview }: { onReview: (id: number) => void }
             {run.suite !== "subjective" && lb.length > 0 && (
               <div className="panel">
                 <h2>Leaderboard (pass% · tok/s)</h2>
+                <p className="muted" style={{ fontSize: 13, marginTop: -6 }}>
+                  Click a test name to learn what it measures and whether the score matters for you.
+                </p>
                 <table>
-                  <thead><tr><th>model</th>{groups.map((g) => <th key={g}>{g}</th>)}<th>overall</th></tr></thead>
+                  <thead><tr><th>model</th>{groups.map((g) => (
+                    <th key={g}><a style={{ cursor: "pointer" }} title="What does this test mean?" onClick={() => onExplain(g)}>{g} ⓘ</a></th>
+                  ))}<th>overall</th></tr></thead>
                   <tbody>
                     {models.map((m) => {
                       const rows = lb.filter((x) => x.model_id === m);

@@ -71,7 +71,9 @@ export default function Run({ onStarted }: { onStarted: () => void }) {
           ))}
           {!allGroups.length && <span className="muted">no items for this suite</span>}
         </div>
-        <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>None selected = run all groups.</p>
+        <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+          None selected = run all groups. New here? The <b>Guide</b> tab explains what each test means for you.
+        </p>
       </div>
 
       <button className="btn" disabled={busy || !picked.size || !selectedItems.length} onClick={start}>
