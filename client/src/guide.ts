@@ -106,6 +106,28 @@ export function groupGuide(group: string): GroupGuide {
   };
 }
 
+// Prefer the built-in catalog; otherwise use a custom test's optional _guide override
+// (set in the Build tab), falling back to the generic description.
+export function resolveGuide(group: string, items: { suite: string; config: string }[]): GroupGuide {
+  if (GROUPS[group]) return GROUPS[group];
+  for (const it of items) {
+    try {
+      const c = JSON.parse(it.config);
+      if (c._guide && (c._guide.title || c._guide.highScoreMeans)) {
+        return {
+          suite: it.suite, emoji: "🧪",
+          title: c._guide.title ?? group,
+          tagline: "Your custom test.",
+          whatItChecks: "A custom test you added in the Build tab.",
+          highScoreMeans: c._guide.highScoreMeans ?? "Higher pass rates mean the model handles these tasks more reliably.",
+          examples: [], relevance: "Relevant to whatever real use case you built this test for.",
+        };
+      }
+    } catch { /* ignore bad config */ }
+  }
+  return groupGuide(group);
+}
+
 // ---- per-item plain explanation, derived from the item's stored config ----
 const EXTRACTOR_PHRASE: Record<string, string> = {
   raw: "its reply",

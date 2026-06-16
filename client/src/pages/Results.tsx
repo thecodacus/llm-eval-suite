@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api, LbRow, Result, Run } from "../api";
 
 export default function Results({ onReview, onExplain }: { onReview: (id: number) => void; onExplain: (group: string) => void }) {
@@ -7,6 +7,10 @@ export default function Results({ onReview, onExplain }: { onReview: (id: number
   const [run, setRun] = useState<Run | null>(null);
   const [results, setResults] = useState<Result[]>([]);
   const [lb, setLb] = useState<LbRow[]>([]);
+  const [open, setOpen] = useState<Set<number>>(new Set());
+
+  const toggle = (id: number) => setOpen((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const promptOf = (r: Result) => { try { return r.item_config ? JSON.parse(r.item_config).prompt : ""; } catch { return ""; } };
 
   useEffect(() => { api.runs().then((r) => { setRuns(r); if (!sel && r.length) setSel(r[0].id); }); }, []);
 
@@ -84,18 +88,33 @@ export default function Results({ onReview, onExplain }: { onReview: (id: number
             )}
 
             <div className="panel">
-              <h2>Results ({results.length})</h2>
+              <h2>Results / logs ({results.length})</h2>
+              <p className="muted" style={{ fontSize: 13, marginTop: -6 }}>Click any row to see the exact prompt, the model's full output, and why it passed or failed.</p>
               <table>
-                <thead><tr><th></th><th>model</th><th>group</th><th>detail</th><th>tok/s</th></tr></thead>
+                <thead><tr><th></th><th>model</th><th>group</th><th>detail</th><th>tok/s</th><th>sec</th></tr></thead>
                 <tbody>
                   {results.map((r) => (
-                    <tr key={r.id}>
-                      <td>{r.passed == null ? "·" : r.passed ? <span className="pass">✓</span> : <span className="fail">✗</span>}</td>
-                      <td>{r.model_id}</td>
-                      <td>{r.task_group}</td>
-                      <td className="mono muted" style={{ maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.detail}>{r.detail}</td>
-                      <td className="muted">{r.tok_per_s ? r.tok_per_s.toFixed(1) : "—"}</td>
-                    </tr>
+                    <Fragment key={r.id}>
+                      <tr style={{ cursor: "pointer" }} onClick={() => toggle(r.id)}>
+                        <td>{r.passed == null ? "·" : r.passed ? <span className="pass">✓</span> : <span className="fail">✗</span>}</td>
+                        <td>{r.model_id}</td>
+                        <td>{r.task_group}</td>
+                        <td className="mono muted" style={{ maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.detail}>{open.has(r.id) ? "▾ " : "▸ "}{r.detail}</td>
+                        <td className="muted">{r.tok_per_s ? r.tok_per_s.toFixed(1) : "—"}</td>
+                        <td className="muted">{r.total_s ? r.total_s.toFixed(1) : "—"}</td>
+                      </tr>
+                      {open.has(r.id) && (
+                        <tr>
+                          <td colSpan={6} style={{ background: "var(--bg)" }}>
+                            {promptOf(r) && (<><div className="muted" style={{ fontSize: 12 }}>Prompt</div><pre className="mono" style={{ fontSize: 12, marginBottom: 8 }}>{promptOf(r)}</pre></>)}
+                            <div className="muted" style={{ fontSize: 12 }}>{r.passed == null ? "Result" : r.passed ? "Passed because" : "Failed because"}</div>
+                            <pre className="mono" style={{ fontSize: 12, marginBottom: 8, color: r.passed === 0 ? "var(--red)" : "var(--fg)" }}>{r.detail || "—"}</pre>
+                            <div className="muted" style={{ fontSize: 12 }}>Model output</div>
+                            <pre className="mono" style={{ fontSize: 12, maxHeight: 300, overflow: "auto" }}>{r.output || "(empty)"}</pre>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

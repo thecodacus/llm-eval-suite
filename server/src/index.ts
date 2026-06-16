@@ -5,9 +5,15 @@ import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import { db } from "./db.js";
 import { startRun } from "./runner.js";
+import { EXTRACTOR_CATALOG, GRADER_CATALOG, SUITE_CATALOG } from "./catalog.js";
 import type { ModelRow, ItemRow, Suite } from "./types.js";
 
 const app = Fastify({ logger: false });
+
+/* ---------------- catalog (verify methods for the Test Builder) ---------------- */
+app.get("/api/catalog", async () => ({
+  suites: SUITE_CATALOG, extractors: EXTRACTOR_CATALOG, graders: GRADER_CATALOG,
+}));
 
 /* ---------------- models ---------------- */
 app.get("/api/models", async () => db.prepare("SELECT * FROM models ORDER BY id").all());
@@ -50,6 +56,15 @@ app.post("/api/items", async (req, reply) => {
   return { id: info.lastInsertRowid };
 });
 
+app.put("/api/items/:id", async (req) => {
+  const it = req.body as any;
+  db.prepare("UPDATE items SET suite=?, task_group=?, config=? WHERE id=?").run(
+    it.suite, it.task_group, typeof it.config === "string" ? it.config : JSON.stringify(it.config),
+    (req.params as any).id
+  );
+  return { ok: true };
+});
+
 app.delete("/api/items/:id", async (req) => {
   db.prepare("DELETE FROM items WHERE id=?").run((req.params as any).id);
   return { ok: true };
@@ -79,7 +94,11 @@ app.get("/api/runs", async () => db.prepare("SELECT * FROM runs ORDER BY id DESC
 app.get("/api/runs/:id", async (req) => {
   const id = (req.params as any).id;
   const run = db.prepare("SELECT * FROM runs WHERE id=?").get(id);
-  const results = db.prepare("SELECT * FROM results WHERE run_id=? ORDER BY id").all(id);
+  // join the item config so the UI can show the exact prompt in expanded log rows
+  const results = db.prepare(
+    `SELECT r.*, i.config AS item_config FROM results r
+     LEFT JOIN items i ON i.id = r.item_id WHERE r.run_id=? ORDER BY r.id`
+  ).all(id);
   return { run, results };
 });
 
@@ -126,6 +145,37 @@ app.post("/api/runs/:id/verdicts", async (req) => {
      ON CONFLICT(run_id,item_id) DO UPDATE SET winner_model_id=excluded.winner_model_id, notes=excluded.notes`
   ).run(id, itemId, winnerModelId ?? null, notes ?? "");
   return { ok: true };
+});
+
+/* ---------------- dashboard (aggregate across all recorded auto-graded runs) ---------------- */
+app.get("/api/dashboard", async () => {
+  const byModelGroup = db.prepare(
+    `SELECT model_id, task_group,
+            SUM(passed) AS pass, COUNT(*) AS n,
+            ROUND(100.0*SUM(passed)/COUNT(*),1) AS pct,
+            ROUND(AVG(tok_per_s),1) AS avg_tok_s
+     FROM results WHERE passed IS NOT NULL
+     GROUP BY model_id, task_group`
+  ).all();
+  const byModel = db.prepare(
+    `SELECT model_id,
+            SUM(passed) AS pass, COUNT(*) AS n,
+            ROUND(100.0*SUM(passed)/COUNT(*),1) AS pct,
+            ROUND(AVG(tok_per_s),1) AS avg_tok_s
+     FROM results WHERE passed IS NOT NULL
+     GROUP BY model_id ORDER BY pct DESC`
+  ).all();
+  const byGroup = db.prepare(
+    `SELECT task_group,
+            ROUND(100.0*SUM(passed)/COUNT(*),1) AS pct, COUNT(*) AS n
+     FROM results WHERE passed IS NOT NULL
+     GROUP BY task_group ORDER BY pct DESC`
+  ).all();
+  const totals = db.prepare(
+    `SELECT COUNT(DISTINCT run_id) AS runs, COUNT(*) AS graded_results
+     FROM results WHERE passed IS NOT NULL`
+  ).get();
+  return { byModel, byModelGroup, byGroup, totals };
 });
 
 app.get("/api/health", async () => ({ ok: true }));

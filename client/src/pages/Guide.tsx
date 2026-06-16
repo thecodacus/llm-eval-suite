@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, Item } from "../api";
-import { SUITES, GROUPS, groupGuide, explainItem } from "../guide";
+import { SUITES, resolveGuide, explainItem } from "../guide";
 
 export default function Guide({ initialGroup, onClear }: { initialGroup?: string | null; onClear?: () => void }) {
   const [items, setItems] = useState<Item[]>([]);
@@ -42,8 +42,9 @@ export default function Guide({ initialGroup, onClear }: { initialGroup?: string
             <p className="muted" style={{ fontSize: 13, marginTop: -4 }}>{sm?.blurb}</p>
             <div className="cards" style={{ marginTop: 12 }}>
               {groups.map((g) => {
-                const gg = groupGuide(g);
-                const n = items.filter((i) => i.task_group === g).length;
+                const gItems = items.filter((i) => i.task_group === g);
+                const gg = resolveGuide(g, gItems);
+                const n = gItems.length;
                 return (
                   <div className="card" key={g} onClick={() => setSelected(g)} style={{ cursor: "pointer" }}>
                     <div style={{ fontSize: 15 }}><b>{gg.emoji} {gg.title}</b></div>
@@ -63,7 +64,7 @@ export default function Guide({ initialGroup, onClear }: { initialGroup?: string
 }
 
 function Detail({ group, items, onBack }: { group: string; items: Item[]; onBack: () => void }) {
-  const gg = groupGuide(group);
+  const gg = resolveGuide(group, items);
   const sm = SUITES[gg.suite];
   return (
     <>
