@@ -7,3 +7,6 @@ data/
 .DS_Store
 *.log
 .env
+
+# tsc incremental build cache
+*.tsbuildinfo
