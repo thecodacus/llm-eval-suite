@@ -66,26 +66,72 @@ async function runAgentic(runId: number, models: ModelRow[], items: ItemRow[]) {
         cap.reset();
         const skills = String(cfg.skills).replaceAll("{BASE_URL}", base);
         const prompt = String(cfg.prompt).replaceAll("{BASE_URL}", base);
-        const c = await complete(model, [{ role: "system", content: skills }, { role: "user", content: prompt }]);
-        const fails: string[] = [];
-        if (c.error) fails.push(`API error: ${c.error}`);
-        else {
-          fails.push(...checkFormat(c.text, cfg.format ?? {}));
-          const cmd = extractCurl(c.text);
-          if (!cmd) fails.push("curl: none found in reply");
+
+        let fails: string[], output: string, tokPerS: number | null, totalS: number;
+        if (Array.isArray(cfg.steps)) {
+          const r = await runChain(model, cfg, skills, prompt, base, cap);
+          ({ fails, output, tokPerS, totalS } = r);
+        } else {
+          const c = await complete(model, [{ role: "system", content: skills }, { role: "user", content: prompt }]);
+          fails = []; output = c.text; tokPerS = c.tokPerS; totalS = c.totalS;
+          if (c.error) fails.push(`API error: ${c.error}`);
           else {
-            const r = await runCurl(cmd, base);
-            if (!r.ran) fails.push(r.detail);
+            fails.push(...checkFormat(c.text, cfg.format ?? {}));
+            const cmd = extractCurl(c.text);
+            if (!cmd) fails.push("curl: none found in reply");
+            else { const r = await runCurl(cmd, base); if (!r.ran) fails.push(r.detail); }
+            fails.push(...matchRequest(cap.last(), cfg.expect));
           }
-          fails.push(...matchRequest(cap.last(), cfg.expect));
         }
-        insResult.run({ run_id: runId, model_id: model.id, item_id: item.id, task_group: item.task_group, passed: fails.length ? 0 : 1, detail: fails.join("; ") || "ok", output: c.text, tok_per_s: c.tokPerS, total_s: c.totalS });
+        insResult.run({ run_id: runId, model_id: model.id, item_id: item.id, task_group: item.task_group, passed: fails.length ? 0 : 1, detail: fails.join("; ") || "ok", output, tok_per_s: tokPerS, total_s: totalS });
         log(runId, `${model.id} ${item.task_group}#${item.id} ${fails.length ? "FAIL" : "PASS"} · ${fails.join("; ") || "ok"}`.slice(0, 220));
       }
     }
   } finally {
     cap.stop();
   }
+}
+
+const CHAIN_PROTOCOL =
+  "\n\nProtocol: make exactly ONE API call per message, as a single curl command inside a ```bash code block. " +
+  "After each call you will receive the API response as JSON — use values from it in later calls. " +
+  "When the task is fully complete, reply with DONE and no curl.";
+
+/** Multi-step agent loop: model calls the mock API, gets scripted responses, and
+ *  chains them. Verifies the captured request sequence against cfg.steps. */
+async function runChain(model: ModelRow, cfg: any, skills: string, prompt: string, base: string, cap: CaptureServer) {
+  cap.setScript((cfg.api ?? []).map((r: any) => ({ when: r.when, return: r.return })));
+  const conv: Array<{ role: string; content: string }> = [
+    { role: "system", content: skills + CHAIN_PROTOCOL },
+    { role: "user", content: prompt },
+  ];
+  const steps: any[] = cfg.steps;
+  const maxSteps = cfg.max_steps ?? steps.length + 2;
+  const fails: string[] = [];
+  const parts: string[] = [];
+  let totalS = 0, tokAcc = 0, tokN = 0;
+
+  for (let i = 0; i < maxSteps; i++) {
+    const c = await complete(model, conv);
+    totalS += c.totalS;
+    if (c.tokPerS) { tokAcc += c.tokPerS; tokN++; }
+    if (c.error) { fails.push(`API error: ${c.error}`); break; }
+    conv.push({ role: "assistant", content: c.text });
+    parts.push(`» model:\n${c.text}`);
+    const cmd = extractCurl(c.text);
+    if (!cmd) break;                              // no more calls — model is done
+    const r = await runCurl(cmd, base);
+    if (!r.ran) { fails.push(`call ${cap.all().length + 1}: ${r.detail}`); break; }
+    parts.push(`« response: ${r.body}`);
+    conv.push({ role: "user", content: `API response:\n${r.body}` });
+  }
+
+  const caps = cap.all();
+  if (caps.length !== steps.length) fails.push(`expected ${steps.length} call(s), model made ${caps.length}`);
+  steps.forEach((step, i) => {
+    if (caps[i]) matchRequest(caps[i], step).forEach((f) => fails.push(`step ${i + 1} ${f}`));
+  });
+  return { fails, output: parts.join("\n\n"), tokPerS: tokN ? tokAcc / tokN : null, totalS };
 }
 
 async function runSubjective(runId: number, models: ModelRow[], items: ItemRow[]) {

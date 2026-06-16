@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { seedModels, seedItems } from "./seed.js";
+import { seedPackItems } from "./seed-pack.js";
 
 const DB_PATH = process.env.DB_PATH || "/data/evals.db";
 
@@ -72,3 +73,18 @@ if (!haveItems) {
   );
   tx();
 }
+
+// Extended packs: insert additively, idempotent by the stable `_seed` key, so
+// existing databases pick up new tests on restart without wiping or duplicating.
+const findSeed = db.prepare("SELECT 1 FROM items WHERE json_extract(config,'$._seed') = ?");
+const insPack = db.prepare("INSERT INTO items (suite,task_group,config) VALUES (?,?,?)");
+const packTx = db.transaction(() => {
+  let added = 0;
+  for (const it of seedPackItems) {
+    if (!it.config._seed || findSeed.get(it.config._seed)) continue;
+    insPack.run(it.suite, it.task_group, JSON.stringify(it.config));
+    added++;
+  }
+  if (added) console.log(`seeded ${added} new pack items`);
+});
+packTx();
