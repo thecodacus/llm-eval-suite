@@ -1,0 +1,18 @@
+# Pull the CI-built image and run it on your server.
+#   docker compose pull && docker compose up -d
+# Then open http://<your-server>:8080
+services:
+  llm-eval-suite:
+    image: ghcr.io/thecodacus/llm-eval-suite:latest
+    container_name: llm-eval-suite
+    ports:
+      - "8080:8080"
+    volumes:
+      - eval-data:/data        # SQLite db persists here
+    restart: unless-stopped
+    # lets the app reach model servers (LM Studio/Ollama) running on the host:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  eval-data:

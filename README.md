@@ -1,0 +1,68 @@
+# LLM Eval Suite
+
+A self-hosted web app for testing local LLMs against any OpenAI-compatible
+server (LM Studio, Ollama, llama-server). React + Vite + TypeScript frontend,
+Fastify + better-sqlite3 backend, one Docker image, CI-built on GHCR.
+
+Three test families, one UI:
+
+| Suite | Graded by | Volume | What it measures |
+|---|---|---|---|
+| **Deterministic** | machine (no judge) | high | exact answers: math, code (runs it), extraction, classification, structured JSON |
+| **Agentic** | machine (no judge) | medium | follow an exact reply format **and** emit a working `curl` to a local API, verified by a built-in capture server |
+| **Subjective** | you, blinded | low | writing quality etc. — outputs staged A/B/C, names hidden until you pick |
+
+Every run records correctness **and** speed (tok/s).
+
+## Run it (server)
+```bash
+docker compose pull && docker compose up -d
+# open http://<your-server>:8080
+```
+SQLite lives in the `eval-data` volume (`/data/evals.db`). Models you add and
+runs you make persist across restarts. The container can reach model servers on
+the host via `host.docker.internal` (wired up in `docker-compose.yml`).
+
+Or pull directly:
+```bash
+docker run -d -p 8080:8080 -v eval-data:/data \
+  --add-host host.docker.internal:host-gateway \
+  ghcr.io/thecodacus/llm-eval-suite:latest
+```
+
+## Use it
+1. **Models** tab — add each candidate (id, `base_url`, model name). Seeded with examples.
+2. **Run** tab — pick a suite, the models, optionally specific task groups, hit run.
+3. **Results** tab — live leaderboard (pass% · tok/s) for deterministic/agentic; for
+   subjective, open the blinded review and click winners.
+
+## Develop locally
+```bash
+cd server && npm install && npm run dev   # API on :8080 (DB_PATH=./data/evals.db)
+cd client && npm install && npm run dev   # Vite on :5173, proxies /api -> :8080
+```
+Set `DB_PATH` to control where SQLite is written (defaults to `/data/evals.db`).
+
+## CI / images
+`.github/workflows/docker.yml` builds and pushes to **GHCR** on every push to
+`main` (tag `latest`), on `v*` tags (semver), and on manual dispatch — using
+GitHub's runners, so you never build locally. Image:
+`ghcr.io/thecodacus/llm-eval-suite`.
+
+## Architecture
+```
+server/  Fastify API + SQLite + eval engine
+  src/eval/  client.ts extractors.ts graders.ts agentic.ts
+  src/runner.ts   executes a run across a suite, writes results
+  src/seed.ts     default models + task banks (first boot)
+client/  React/Vite/TS SPA (Run · Results · Models · blinded Review)
+Dockerfile  3-stage: build client → build server → slim runtime (node+python3+curl)
+```
+
+### Safety
+The agentic suite executes model-written `curl`. It runs with **no shell**
+(tokenized argv), must be a lone `curl`, must target the in-process capture
+server (other hosts refused, not run), and filesystem flags (`-o`, `-T`, `@file`…)
+are rejected. The `code_tests` grader runs model-written Python in a temp file
+subprocess. Both are fine for trusted local models; add a sandbox before pointing
+them at adversarial output.
