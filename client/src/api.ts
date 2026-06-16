@@ -52,6 +52,7 @@ export const api = {
   startRun: (suite: Suite, modelIds: string[], taskGroups?: string[]) =>
     j<{ runId: number }>("/api/runs", { method: "POST", body: JSON.stringify({ suite, modelIds, taskGroups }) }),
   runs: () => j<Run[]>("/api/runs"),
+  deleteRun: (id: number) => j(`/api/runs/${id}`, { method: "DELETE" }),
   run: (id: number) => j<{ run: Run; results: Result[] }>(`/api/runs/${id}`),
   leaderboard: (id: number) => j<LbRow[]>(`/api/runs/${id}/leaderboard`),
   review: (id: number) => j<{ blocks: any[]; verdicts: any[] }>(`/api/runs/${id}/review`),

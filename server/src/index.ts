@@ -91,6 +91,17 @@ app.post("/api/runs", async (req, reply) => {
 
 app.get("/api/runs", async () => db.prepare("SELECT * FROM runs ORDER BY id DESC LIMIT 50").all());
 
+app.delete("/api/runs/:id", async (req) => {
+  const id = (req.params as any).id;
+  const tx = db.transaction((rid: string) => {
+    db.prepare("DELETE FROM results WHERE run_id=?").run(rid);
+    db.prepare("DELETE FROM verdicts WHERE run_id=?").run(rid);
+    db.prepare("DELETE FROM runs WHERE id=?").run(rid);
+  });
+  tx(id);
+  return { ok: true };
+});
+
 app.get("/api/runs/:id", async (req) => {
   const id = (req.params as any).id;
   const run = db.prepare("SELECT * FROM runs WHERE id=?").get(id);

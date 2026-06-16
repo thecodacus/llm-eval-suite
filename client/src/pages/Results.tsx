@@ -18,6 +18,18 @@ export default function Results({ onReview, onExplain }: { onReview: (id: number
   const toggle = (id: number) => setOpen((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const promptOf = (r: Result) => { try { return r.item_config ? JSON.parse(r.item_config).prompt : ""; } catch { return ""; } };
 
+  const removeRun = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Delete run #${id}? Its results are removed permanently.`)) return;
+    await api.deleteRun(id);
+    const next = runs.filter((r) => r.id !== id);
+    setRuns(next);
+    if (sel === id) {
+      if (next.length) setSel(next[0].id);
+      else { setSel(null); setRun(null); setResults([]); setLb([]); }
+    }
+  };
+
   useEffect(() => { api.runs().then((r) => { setRuns(r); if (!sel && r.length) setSel(r[0].id); }); }, []);
 
   // poll the selected run while it's running
@@ -45,9 +57,13 @@ export default function Results({ onReview, onExplain }: { onReview: (id: number
       <div className="panel" style={{ width: 240, flexShrink: 0 }}>
         <h2>Runs</h2>
         {runs.map((r) => (
-          <div key={r.id} className={`chip ${sel === r.id ? "on" : ""}`} style={{ display: "flex", width: "100%", marginBottom: 6, justifyContent: "space-between" }} onClick={() => setSel(r.id)}>
-            <span>#{r.id} {r.suite}</span>
+          <div key={r.id} className={`chip ${sel === r.id ? "on" : ""}`} style={{ display: "flex", width: "100%", marginBottom: 6, gap: 6, alignItems: "center" }} onClick={() => setSel(r.id)}>
+            <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>#{r.id} {r.suite}</span>
             <span className={r.status === "done" ? "pass" : r.status === "error" ? "fail" : "muted"}>{r.status}</span>
+            <button title="Delete run" onClick={(e) => removeRun(r.id, e)}
+              style={{ background: "none", border: 0, cursor: "pointer", color: "var(--muted)", display: "inline-flex", padding: 2 }}>
+              <Icon name="trash" size={13} />
+            </button>
           </div>
         ))}
         {!runs.length && <p className="muted">No runs yet.</p>}
