@@ -1,12 +1,13 @@
 import type { Suite } from "./types.js";
 
-// Extended test pack: more tests, various context lengths, harder cases.
-// Each item carries a stable `_seed` key so db.ts can insert it idempotently
-// (additive across versions — existing databases get new items on restart).
+// Extended test pack — HARD deterministic tests (varied context length + tough cases),
+// plus agentic single-calls and tool-call chaining. Each item carries a stable `_seed`
+// key; db.ts reconciles by that key (insert new, delete retired) so existing databases
+// swap in the latest set on restart without touching user-created tests.
 
 type PackItem = { suite: Suite; task_group: string; config: any };
 
-/* ---------- haystack generator (varied filler around a planted fact) ---------- */
+/* ---------- haystack generator (facts scattered through varied filler) ---------- */
 const SENTENCES = [
   "The platform team closed {n} support tickets during the sprint review.",
   "Average request latency held steady near {n} milliseconds across all regions.",
@@ -44,17 +45,19 @@ function filler(targetChars: number, salt: number): string {
   return out.join(" ");
 }
 
+// scatter the planted facts evenly through the filler so it's not a single findable block
 function haystack(o: {
   key: string; group: string; chars: number; salt?: number;
-  facts: string[];                 // planted lines (needle first, then distractors)
-  question: string; answer: any; extractor: string; grader: string;
+  facts: string[]; question: string; answer: any; extractor: string; grader: string;
   grader_args?: any; guide?: any;
 }): PackItem {
   const body = filler(o.chars, o.salt ?? 1);
-  const cut = Math.floor(body.length * 0.6);   // plant the needle ~60% in (hardest spot)
-  const prompt =
-    `Read the following document, then answer the question at the end.\n\n` +
-    `${body.slice(0, cut)}\n\n${o.facts.join(" ")}\n\n${body.slice(cut)}\n\n---\n${o.question}`;
+  const n = o.facts.length;
+  const chunk = Math.floor(body.length / (n + 1));
+  const parts: string[] = [];
+  for (let i = 0; i < n; i++) { parts.push(body.slice(i * chunk, (i + 1) * chunk)); parts.push(` ${o.facts[i]} `); }
+  parts.push(body.slice(n * chunk));
+  const prompt = `Read the following document, then answer the question at the end.\n\n${parts.join("")}\n\n---\n${o.question}`;
   const config: any = { prompt, answer: o.answer, extractor: o.extractor, grader: o.grader, _seed: o.key };
   if (o.grader_args) config.grader_args = o.grader_args;
   if (o.guide) config._guide = o.guide;
@@ -62,106 +65,120 @@ function haystack(o: {
 }
 
 const recallGuide = (label: string) => ({
-  title: `Find a fact buried in ${label} of text`,
-  highScoreMeans: `It reliably pulls the right detail out of a ${label} document or chat history without losing or confusing it. Compare the ~1k / 4k / 12k / 30k groups to see where the model's recall starts to slip as input grows.`,
+  title: `Find & use facts in ${label} of text`,
+  highScoreMeans: `It reliably locates the right details in a ${label} document — and here it must also combine or reason over them, not just copy one line. Compare the ~1k / 4k / 12k / 30k groups to see where the model breaks down as context grows.`,
 });
 
-/* ---------- long-document QA (one passage, many factual questions) ---------- */
-const AURORA = `Aurora-DB is a distributed analytical database first released as version 1.0 in 2021; the current stable line is version 3.2, shipped in March 2024. It is written entirely in Rust and exposes a SQL-like query language called AQL. By default the server listens on port 7400 and stores data in shards capped at 512 GB each. A single cluster supports up to 64 nodes, and the default replication factor is 3, meaning every shard is kept on three separate nodes. Aurora-DB was founded by Dr. Lena Voss, a former systems researcher, and is maintained by a team of about forty contributors. Its columnar storage engine, codenamed Basalt, compresses cold partitions to roughly one fifth of their original size. Authentication uses short-lived tokens that expire after 15 minutes by default, and audit logs are retained for 90 days. The project is licensed under Apache 2.0 and publishes a new minor release roughly every four months.`;
+/* ---------- long-document QA (synthesis + arithmetic over a passage) ---------- */
+const AURORA = `Aurora-DB is a distributed analytical database first released as version 1.0 in 2021; the current stable line is version 3.2, shipped in March 2024. It is written entirely in Rust and exposes a SQL-like query language called AQL. By default the server listens on port 7400 and stores data in shards capped at 512 GB each. A single cluster supports up to 64 nodes, and the default replication factor is 3, meaning every shard is kept on three separate nodes. Aurora-DB was founded by Dr. Lena Voss. Its columnar engine compresses cold partitions to roughly one fifth of their size. Authentication uses short-lived tokens that expire after 15 minutes by default, and audit logs are retained for 90 days. A new minor release ships roughly every four months.`;
 
 function auroraQA(key: string, question: string, answer: any, extractor: string, grader: string, guide?: any): PackItem {
-  return { suite: "deterministic", task_group: "longdoc-qa", config: { prompt: `${AURORA}\n\n---\nBased only on the document above: ${question}`, answer, extractor, grader, _seed: key, ...(guide ? { _guide: guide } : {}) } };
+  return { suite: "deterministic", task_group: "longdoc-qa", config: { prompt: `${AURORA}\n\n---\nUsing only the document above, compute the answer. ${question}`, answer, extractor, grader, thinking: true, _seed: key, ...(guide ? { _guide: guide } : {}) } };
 }
 
-/* ---------- assemble pack ---------- */
+/* ---------- builders ---------- */
 const det = (key: string, group: string, prompt: string, answer: any, extractor: string, grader: string, extra: any = {}): PackItem =>
   ({ suite: "deterministic", task_group: group, config: { prompt, answer, extractor, grader, _seed: key, ...extra } });
 
-// single tool call (skill + format + one verified curl)
 const ag = (key: string, group: string, skills: string, prompt: string, expect: any, format: any, guide?: any): PackItem =>
   ({ suite: "agentic", task_group: group, config: { skills, prompt, expect, format, _seed: key, ...(guide ? { _guide: guide } : {}) } });
 
-// multi-step chain: mock API returns scripted responses; verify the call sequence
 const chain = (key: string, group: string, skills: string, prompt: string, api: any[], steps: any[], guide?: any): PackItem =>
   ({ suite: "agentic", task_group: group, config: { skills, prompt, api, steps, _seed: key, ...(guide ? { _guide: guide } : {}) } });
 
 const BASH = "```bash\\s*\\ncurl";
+const TH = { thinking: true };
+const mathGuide = { title: "Hard math & number theory", highScoreMeans: "It solves genuinely tricky problems — combinatorics, modular arithmetic, multi-step counting — and lands the EXACT answer. This is where weaker models fall apart even though they breeze through simple arithmetic." };
 
 export const seedPackItems: PackItem[] = [
-  /* ===== context-length recall: ~1k chars ===== */
-  haystack({ key: "recall1k-a", group: "recall-1k", chars: 1000, salt: 3, facts: ["The deployment passphrase for the Helios cluster is QUARTZ-7731."], question: "What is the deployment passphrase for the Helios cluster? Reply with only the passphrase.", answer: ["QUARTZ-7731"], extractor: "raw", grader: "contains", guide: recallGuide("~1,000 characters (short)") }),
-  haystack({ key: "recall1k-b", group: "recall-1k", chars: 1000, salt: 9, facts: ["Invoice #4471 was issued with a final balance of 18432 dollars.", "Invoice #4470 had a balance of 990 dollars.", "Invoice #4472 was voided."], question: "What is the final balance of invoice #4471? Reply with only the number.", answer: "18432", extractor: "last_number", grader: "numeric" }),
+  /* ===== hard math (competition / number theory) ===== */
+  det("hm-divneither", "math", "How many positive integers strictly less than 1000 are divisible by neither 3 nor 7? Show working, then end with '#### <number>'.", "571", "boxed", "numeric", { ...TH, _guide: mathGuide }),
+  det("hm-mod", "math", "What is the remainder when 7^100 is divided by 13? Show working, then end with '#### <number>'.", "9", "boxed", "numeric", TH),
+  det("hm-sigma", "math", "What is the sum of all positive divisors of 360 (including 1 and 360)? End with '#### <number>'.", "1170", "boxed", "numeric", TH),
+  det("hm-mississippi", "math", "How many distinct arrangements are there of the letters in the word MISSISSIPPI? End with '#### <number>'.", "34650", "boxed", "numeric", TH),
+  det("hm-units", "math", "What is the units digit of 3^2024? End with '#### <number>'.", "1", "boxed", "numeric", TH),
+  det("hm-trailing", "math", "What is the smallest positive integer n such that n! ends in exactly 3 trailing zeros? End with '#### <number>'.", "15", "boxed", "numeric", TH),
+  det("hm-handshake", "math", "At a party every pair of people shook hands exactly once, for 66 handshakes total. How many people were there? End with '#### <number>'.", "12", "boxed", "numeric", TH),
+  det("hm-clock", "math", "What is the smaller angle, in degrees, between the hour and minute hands of a clock at exactly 3:15? End with '#### <number>'.", "7.5", "boxed", "numeric", TH),
 
-  /* ===== ~4k chars ===== */
-  haystack({ key: "recall4k-a", group: "recall-4k", chars: 4000, salt: 5, facts: ["The rollback procedure requires entering the code DELTA-5520 within sixty seconds."], question: "What code does the rollback procedure require? Reply with only the code.", answer: ["DELTA-5520"], extractor: "raw", grader: "contains", guide: recallGuide("~4,000 characters (medium)") }),
-  haystack({ key: "recall4k-b", group: "recall-4k", chars: 4000, salt: 12, facts: ["Server node-17 reported a peak temperature of 73 degrees.", "Server node-3 peaked at 61 degrees.", "Server node-17 was later replaced."], question: "What peak temperature did server node-17 report? Reply with only the number.", answer: "73", extractor: "last_number", grader: "numeric" }),
+  /* ===== hard reasoning (logic traps / puzzles) ===== */
+  det("hr-bat", "reasoning", "A bat and a ball cost $1.10 together. The bat costs $1.00 more than the ball. How many CENTS does the ball cost? End with '#### <number>'.", "5", "boxed", "numeric", { ...TH, _guide: { title: "Logic puzzles & traps", highScoreMeans: "It resists the obvious-but-wrong answer and reasons carefully through classic traps and constraint puzzles — a good proxy for not being fooled on your own tricky questions." } }),
+  det("hr-widgets", "reasoning", "If 5 machines take 5 minutes to make 5 widgets, how many minutes do 100 machines take to make 100 widgets? End with '#### <number>'.", "5", "boxed", "numeric", TH),
+  det("hr-balls", "reasoning", "You have 9 identical-looking balls; exactly one is heavier. Using a balance scale, what is the minimum number of weighings that GUARANTEES finding the heavy ball? End with '#### <number>'.", "2", "boxed", "numeric", TH),
+  det("hr-labels", "reasoning", "Three boxes labeled 'Apples', 'Oranges', and 'Mixed' each have a WRONG label. You draw one fruit from the box labeled 'Mixed' and it is an apple. Which single fruit does that box (labeled 'Mixed') actually contain? End with '#### <fruit>'.", ["apple"], "boxed", "contains", TH),
+  det("hr-knave", "reasoning", "Knights always tell the truth; knaves always lie. A says 'B is a knave.' B says 'A and I are the same type.' What is B? End with '#### knight' or '#### knave'.", ["knave"], "boxed", "contains", TH),
+  det("hr-ages", "reasoning", "A father is 4 times as old as his son. In 20 years he will be twice as old as his son. How old is the father NOW? End with '#### <number>'.", "40", "boxed", "numeric", TH),
+  det("hr-overtake", "reasoning", "In a race you pass the runner in 2nd place just before the finish. What place do you finish in? End with '#### <number>'.", "2", "boxed", "numeric", TH),
+  det("hr-lookandsay", "reasoning", "The sequence is: 1, 11, 21, 1211, 111221, ... What is the NEXT term? End with '#### <number>'.", ["312211"], "boxed", "contains", TH),
 
-  /* ===== ~12k chars ===== */
-  haystack({ key: "recall12k-a", group: "recall-12k", chars: 12000, salt: 7, facts: ["Per the contract, the early-termination fee is fixed at 21750 dollars."], question: "What is the early-termination fee in dollars? Reply with only the number.", answer: "21750", extractor: "last_number", grader: "numeric", guide: recallGuide("~12,000 characters (long)") }),
-  haystack({ key: "recall12k-b", group: "recall-12k", chars: 12000, salt: 21, facts: ["The backup encryption key fingerprint ends in 9F-AC-30."], question: "What does the backup encryption key fingerprint end in? Reply with only the value.", answer: ["9F-AC-30"], extractor: "raw", grader: "contains" }),
+  /* ===== hard code (real algorithms, thorough hidden tests) ===== */
+  det("hc-edit", "code-hard", "Write a Python function `edit_distance(a, b)` returning the Levenshtein edit distance between two strings. Return only the code.", "assert edit_distance('kitten','sitting')==3\nassert edit_distance('','abc')==3\nassert edit_distance('abc','abc')==0\nassert edit_distance('sunday','saturday')==3", "code_block", "code_tests", { _guide: { title: "Real algorithms, edge cases", highScoreMeans: "It implements non-trivial algorithms (edit distance, LIS, n-queens, wildcard match) that actually pass thorough tests including edge cases — the gap between code that looks right and code you can ship." } }),
+  det("hc-lis", "code-hard", "Write a Python function `lis_length(nums)` returning the length of the longest strictly increasing subsequence. Return only the code.", "assert lis_length([10,9,2,5,3,7,101,18])==4\nassert lis_length([])==0\nassert lis_length([7,7,7])==1\nassert lis_length([1,2,3,4])==4", "code_block", "code_tests"),
+  det("hc-coins", "code-hard", "Write a Python function `min_coins(coins, amount)` returning the fewest coins that sum to amount, or -1 if impossible. Return only the code.", "assert min_coins([1,2,5],11)==3\nassert min_coins([2],3)==-1\nassert min_coins([1],0)==0\nassert min_coins([186,419,83,408],6249)==20", "code_block", "code_tests"),
+  det("hc-nqueens", "code-hard", "Write a Python function `nqueens(n)` returning the number of distinct solutions to the n-queens problem. Return only the code.", "assert nqueens(1)==1\nassert nqueens(4)==2\nassert nqueens(6)==4\nassert nqueens(8)==92", "code_block", "code_tests"),
+  det("hc-wildcard", "code-hard", "Write a Python function `is_match(s, p)` for wildcard matching where '?' matches any single char and '*' matches any sequence (including empty). Return only the code.", "assert is_match('aa','a')==False\nassert is_match('aa','*')==True\nassert is_match('cb','?a')==False\nassert is_match('adceb','*a*b')==True\nassert is_match('acdcb','a*c?b')==False", "code_block", "code_tests"),
+  det("hc-wordbreak", "code-hard", "Write a Python function `can_break(s, words)` returning True if s can be segmented into a space-separated sequence of words from the list `words`. Return only the code.", "assert can_break('leetcode',['leet','code'])==True\nassert can_break('applepenapple',['apple','pen'])==True\nassert can_break('catsandog',['cats','dog','sand','and','cat'])==False", "code_block", "code_tests"),
+  det("hc-canfinish", "code-hard", "Write a Python function `can_finish(n, prereqs)` returning True if all n courses (0..n-1) can be completed given prerequisite pairs [a,b] meaning b must come before a (i.e. the directed graph has no cycle). Return only the code.", "assert can_finish(2,[[1,0]])==True\nassert can_finish(2,[[1,0],[0,1]])==False\nassert can_finish(3,[[1,0],[2,1]])==True\nassert can_finish(3,[[0,1],[1,2],[2,0]])==False", "code_block", "code_tests"),
 
-  /* ===== ~30k chars ===== */
-  haystack({ key: "recall30k-a", group: "recall-30k", chars: 30000, salt: 11, facts: ["The disaster-recovery site is located in building C, room 412, rack 9."], question: "Which rack number is the disaster-recovery site in? Reply with only the number.", answer: "9", extractor: "last_number", grader: "numeric", guide: recallGuide("~30,000 characters (very long)") }),
-  haystack({ key: "recall30k-b", group: "recall-30k", chars: 30000, salt: 29, facts: ["The master service account is named svc-orion-prod-7."], question: "What is the name of the master service account? Reply with only the account name.", answer: ["svc-orion-prod-7"], extractor: "raw", grader: "contains" }),
+  /* ===== hard extraction (multi-hop / requires computation or disambiguation) ===== */
+  det("he-sumtop2", "extract", "From the list below, output ONLY the sum of the TWO largest invoice amounts (a single number).\n\nInvoices: #A 1240, #B 980, #C 3120, #D 1750, #E 2890.", "6010", "last_number", "numeric", { _guide: { title: "Multi-hop extraction", highScoreMeans: "It doesn't just copy a value — it finds the RIGHT values among distractors and combines them. Tests careful reading plus a computation, which trips up models that pattern-match instead of reasoning." } }),
+  det("he-reporter", "extract", "Two people are mentioned. Output ONLY the email of the person who REPORTED the bug (not the one who fixed it).\n\n'The crash was reported by dana@acme.io; it was fixed by sam@acme.io the following day.'", "dana@acme.io", "raw", "exact"),
+  det("he-nthword", "extract", "Output ONLY the 8th word of this sentence: 'The quick brown fox jumps over the lazy dog today.'", ["lazy"], "raw", "contains"),
+  det("he-datecalc", "extract", "An event started on 2026-03-10 and ran for 25 days, counting the start day as day 1. Output ONLY the end date in YYYY-MM-DD form.", ["2026-04-03"], "raw", "contains"),
+  det("he-conditional", "extract", "Output ONLY the price (a number) of the item that is BOTH in stock AND under $50.\n\nWidget: $30, out of stock. Gadget: $45, in stock. Gizmo: $80, in stock. Doohickey: $20, out of stock.", "45", "last_number", "numeric"),
 
-  /* ===== long-document QA ===== */
-  auroraQA("aurora-port", "what port does the server listen on by default? Number only.", "7400", "last_number", "numeric", { title: "Answer questions about a long document", highScoreMeans: "It reads a dense passage and answers factual questions correctly without inventing details — the core skill for summarizing reports, contracts, and docs you feed it." }),
-  auroraQA("aurora-aql", "what is the query language called? One word.", ["AQL"], "raw", "contains"),
-  auroraQA("aurora-repl", "what is the default replication factor? Number only.", "3", "last_number", "numeric"),
-  auroraQA("aurora-founder", "who founded it? Full name.", ["Lena", "Voss"], "raw", "contains"),
-  auroraQA("aurora-shard", "what is the maximum shard size in GB? Number only.", "512", "last_number", "numeric"),
-  auroraQA("aurora-token", "how many minutes until an auth token expires by default? Number only.", "15", "last_number", "numeric"),
+  /* ===== logical deduction (replaces easy sentiment classify) ===== */
+  det("hd-syllogism", "deduction", "All bloops are razzies. All razzies are lazzies. Does it follow that all bloops are lazzies? Reply with ONLY the word YES or NO.", ["yes"], "raw", "contains", { _guide: { title: "Logical deduction", highScoreMeans: "It judges whether a conclusion VALIDLY follows — distinguishing real entailment from plausible-sounding fallacies. Useful wherever you need the model to reason rigorously rather than agreeably." } }),
+  det("hd-fallacy", "deduction", "Some cats are black. Some black things are cars. Does it follow that some cats are cars? Reply with ONLY the word YES or NO.", ["no"], "raw", "contains"),
+  det("hd-tollens", "deduction", "Rule: 'If it rains, the match is cancelled.' The match was NOT cancelled. Can we conclude it did not rain? Reply with ONLY the word YES or NO.", ["yes"], "raw", "contains"),
+  det("hd-consequent", "deduction", "Rule: 'If it rains, the ground gets wet.' The ground is wet. Can we conclude that it rained? Reply with ONLY the word YES or NO.", ["no"], "raw", "contains"),
+  det("hd-ordering", "deduction", "Five runners finished a race. Dave beat Alice. Alice beat Bob. Carol finished right after Bob. Eve finished last. Who finished 2nd? End with '#### <name>'.", ["alice"], "boxed", "contains", TH),
 
-  /* ===== complex multi-step reasoning (end with #### answer) ===== */
-  det("reason-tank", "reasoning", "A tank holds 240 liters. It is filled at 15 liters per minute while simultaneously draining at 5 liters per minute. Starting empty, how many minutes until it is full? Show working, then end with '#### <number>'.", "24", "boxed", "numeric", { thinking: true, _guide: { title: "Multi-step problem solving", highScoreMeans: "It can chain several steps without dropping or fumbling one — useful for planning, estimates, and any 'work it out' question where a single wrong step ruins the answer." } }),
-  det("reason-ages", "reasoning", "Alice is twice as old as Bob. In 5 years, the sum of their ages will be 40. How old is Alice now? End with '#### <number>'.", "20", "boxed", "numeric", { thinking: true }),
-  det("reason-interest", "reasoning", "You invest 1000 dollars at 10% simple annual interest. What is the total amount after 3 years? End with '#### <number>'.", "1300", "boxed", "numeric", { thinking: true }),
-  det("reason-days", "reasoning", "If today is Tuesday, what day of the week is it 100 days from now? End with '#### <weekday>'.", ["thursday"], "boxed", "contains", { thinking: true }),
-  det("reason-race", "reasoning", "In a race, you overtake the person in second place. What position are you in now? End with '#### <number>'.", "2", "boxed", "numeric", { thinking: true }),
-  det("reason-trains", "reasoning", "Two trains are 300 km apart heading toward each other at 50 km/h and 100 km/h. How many hours until they meet? End with '#### <number>'.", "2", "boxed", "numeric", { thinking: true }),
-  det("reason-eggs", "reasoning", "A recipe uses 3 eggs for 12 cookies. How many eggs are needed for 30 cookies? End with '#### <number>'.", "7.5", "boxed", "numeric", { thinking: true }),
+  /* ===== structured extraction (parse + compute → JSON) ===== */
+  det("hj-order", "json-extract", "Parse the order and output ONLY a JSON object with keys item_count (number of distinct line items), total (sum of qty*unit_price across all lines), currency.\n\nOrder ABC (USD): 3x Widget @ 4.50; 2x Gadget @ 12.00; 5x Bolt @ 0.20.", { item_count: 3, total: 38.5, currency: "USD" }, "json_block", "json_match", { _guide: { title: "Parse messy text into computed JSON", highScoreMeans: "It extracts fields AND derives values (counts, sums) into clean structured output — the real test of feeding model output into other software." } }),
+  det("hj-evenodd", "json-extract", "Output ONLY a JSON object {even_sum, odd_count} for the list [4, 7, 10, 3, 8, 5]: even_sum is the sum of the even numbers; odd_count is how many numbers are odd.", { even_sum: 22, odd_count: 3 }, "json_block", "json_match"),
+  det("hj-logs", "json-extract", "From the two log lines below, output ONLY a JSON object {total_latency_ms, error_count}: sum of all latency_ms, and the count of lines with status >= 500.\n\n[09:01] status=200 latency_ms=120\n[09:02] status=503 latency_ms=890", { total_latency_ms: 1010, error_count: 1 }, "json_block", "json_match"),
+  det("hj-contact", "json-extract", "Output ONLY a JSON object {name, skill_count} for: 'Engineer Maya Lopez lists Python, Rust, and Go as her languages.'", { name: "Maya Lopez", skill_count: 3 }, "json_block", "json_match"),
 
-  /* ===== harder code (run against hidden tests) ===== */
-  det("code-roman", "code-hard", "Write a Python function `roman(n)` converting an integer 1..3999 to its Roman numeral string. Return only the code.", "assert roman(4)=='IV'\nassert roman(49)=='XLIX'\nassert roman(1994)=='MCMXCIV'", "code_block", "code_tests", { _guide: { title: "Tougher, algorithmic code", highScoreMeans: "It handles real algorithm problems (parsing, intervals, conversions) that actually run and pass edge-case tests — the difference between a model that writes plausible code and one you can trust." } }),
-  det("code-balanced", "code-hard", "Write a Python function `is_balanced(s)` returning True if the brackets ()[]{} in s are correctly balanced and nested. Return only the code.", "assert is_balanced('([]{})')\nassert not is_balanced('([)]')\nassert is_balanced('')", "code_block", "code_tests"),
-  det("code-merge", "code-hard", "Write a Python function `merge_intervals(intervals)` that merges overlapping [start,end] intervals and returns them sorted by start. Return only the code.", "assert merge_intervals([[1,3],[2,6],[8,10]])==[[1,6],[8,10]]\nassert merge_intervals([])==[]", "code_block", "code_tests"),
-  det("code-rpn", "code-hard", "Write a Python function `rpn(tokens)` that evaluates a reverse-Polish-notation list of string tokens (ints and + - * /) and returns the integer result. Return only the code.", "assert rpn(['2','3','+','4','*'])==20\nassert rpn(['5','1','2','+','4','*','+','3','-'])==14", "code_block", "code_tests"),
-  det("code-lcp", "code-hard", "Write a Python function `longest_common_prefix(strs)` returning the longest common prefix string of a list (or '' if none). Return only the code.", "assert longest_common_prefix(['flower','flow','flight'])=='fl'\nassert longest_common_prefix(['dog','car'])==''", "code_block", "code_tests"),
-  det("code-spiral", "code-hard", "Write a Python function `spiral(matrix)` returning the elements of a 2D list in clockwise spiral order as a flat list. Return only the code.", "assert spiral([[1,2,3],[4,5,6],[7,8,9]])==[1,2,3,6,9,8,7,4,5]", "code_block", "code_tests"),
+  /* ===== table QA (conditional aggregation / joins) ===== */
+  det("ht-condsum", "table-qa", "What is the total revenue (price*qty) for rows in the 'North' region ONLY? Number only.\n\n| region | price | qty |\n|---|---|---|\n| North | 10 | 3 |\n| South | 20 | 5 |\n| North | 8 | 10 |\n| East | 15 | 2 |", "110", "last_number", "numeric", { _guide: { title: "Compute over tables", highScoreMeans: "It filters, joins, and aggregates tabular data correctly — conditional sums, second-highest, lookups across two tables — so you can trust it with real spreadsheet questions, not just single-cell reads." } }),
+  det("ht-filtercount", "table-qa", "How many products are BOTH priced above 50 AND have stock below 10? Number only.\n\n| product | price | stock |\n|---|---|---|\n| A | 60 | 5 |\n| B | 40 | 3 |\n| C | 80 | 20 |\n| D | 55 | 9 |", "2", "last_number", "numeric"),
+  det("ht-secondmax", "table-qa", "Which region has the SECOND highest total sales? One word.\n\n| region | sales |\n|---|---|\n| North | 4200 |\n| South | 5100 |\n| East | 5099 |\n| West | 3000 |", ["east"], "raw", "contains"),
+  det("ht-join", "table-qa", "Output ONLY the name of the person with the highest score, joining the two tables by id.\n\nNames:\n1,Ann\n2,Bob\n3,Cara\nScores:\n1,88\n2,95\n3,91", ["bob"], "raw", "contains"),
+  det("ht-avgcond", "table-qa", "What is the average price of the IN-STOCK items only? Number only.\n\n| item | price | in_stock |\n|---|---|---|\n| A | 10 | yes |\n| B | 20 | no |\n| C | 30 | yes |\n| D | 50 | yes |", "30", "last_number", "numeric"),
 
-  /* ===== structured extraction from long, messy text ===== */
-  det("json-refund", "json-extract", "From the support email below, output ONLY a JSON object with keys order_id, customer_email, amount_refunded.\n\n---\nHey team, forwarding this along. Customer wrote in pretty upset. Looks like order #A-90531 (placed last Tuesday) arrived damaged. I went ahead and approved a refund of $142.50 to their account. You can reach them at jordan.mills@example.org if needed. Note the original charge was $158.00 but shipping isn't refundable. Thanks!", { order_id: "A-90531", customer_email: "jordan.mills@example.org", amount_refunded: "142.50" }, "json_block", "json_match", { _guide: { title: "Pull structured data out of messy text", highScoreMeans: "It turns a rambling email or log into clean, correctly-typed fields — the backbone of automating data entry and feeding other tools." } }),
-  det("json-log", "json-extract", "From the log line below, output ONLY a JSON object with keys status (number), latency_ms (number), endpoint (string).\n\n---\n[2026-06-16T09:12:44Z] INFO req=8831 method=POST endpoint=/api/v2/checkout status=503 latency_ms=1487 retries=2 region=ap-south-1", { status: "503", latency_ms: "1487", endpoint: "/api/v2/checkout" }, "json_block", "json_match"),
-  det("json-contact", "json-extract", "From the signature below, output ONLY a JSON object with keys name, title, phone.\n\n---\nBest regards,\nDr. Priya Raman\nHead of Platform Engineering | Northwind Labs\nm: +1 (415) 555-0192 | priya@northwind.example | she/her", { name: "Dr. Priya Raman", title: "Head of Platform Engineering", phone: "+1 (415) 555-0192" }, "json_block", "json_match", { grader_args: { keys: ["name", "title"] } }),
-  det("json-shipment", "json-extract", "From the notice below, output ONLY a JSON object with keys tracking, carrier, eta_days.\n\n---\nUpdate: your package (tracking 1Z999AA10123456784) shipped via UPS Ground this morning and is expected to arrive in about 4 business days. Weight 2.3kg.", { tracking: "1Z999AA10123456784", carrier: "UPS", eta_days: "4" }, "json_block", "json_match", { grader_args: { keys: ["tracking", "eta_days"] } }),
+  /* ===== in-context learning (abstract / non-obvious rules) ===== */
+  det("hi-factorial", "in-context", "Follow the pattern.\n1 -> 1\n2 -> 2\n3 -> 6\n4 -> 24\nWhat is the output for 6? Reply with only the number.", "720", "last_number", "numeric", { _guide: { title: "Induce a non-obvious rule", highScoreMeans: "It infers the underlying RULE from a few examples (factorials, digit sums, ciphers) — not the surface pattern — and applies it correctly. This is what makes few-shot prompting reliable for you." } }),
+  det("hi-digitsum", "in-context", "Follow the pattern.\n12 -> 3\n23 -> 5\n47 -> 11\n99 -> 18\nWhat is the output for 56? Reply with only the number.", "11", "last_number", "numeric"),
+  det("hi-caesar", "in-context", "These map plaintext to a shift cipher: 'abc' -> 'def', 'hello' -> 'khoor'. Decode 'zruog' back to plaintext. Output only the decoded word.", ["world"], "raw", "contains"),
+  det("hi-revlen", "in-context", "Follow the pattern.\n'cat' -> 'tac3'\n'dog' -> 'god3'\n'bird' -> 'drib4'\nWhat is the output for 'fish'? Output only the result.", ["hsif4"], "raw", "contains"),
+  det("hi-pairsum", "in-context", "Follow the pattern.\n[1,2] -> 3\n[4,5,6] -> 15\n[10] -> 10\n[2,2,2,2] -> 8\nWhat is the output for [7,3,5]? Reply with only the number.", "15", "last_number", "numeric"),
 
-  /* ===== in-context learning (induce the pattern from examples) ===== */
-  det("icl-len", "in-context", "Follow the pattern.\ncat -> 3\nhippo -> 5\nsun -> 3\nelephant -> 8\nWhat is the output for 'banana'? Reply with only the number.", "6", "last_number", "numeric", { _guide: { title: "Learn a pattern from examples", highScoreMeans: "It figures out the rule from a few examples and applies it to a new case — what makes few-shot prompting and 'show, don't tell' instructions actually work for you." } }),
-  det("icl-linear", "in-context", "Follow the pattern.\n2 -> 5\n3 -> 7\n5 -> 11\n7 -> 15\nWhat is the output for 10? Reply with only the number.", "21", "last_number", "numeric"),
-  det("icl-reverse", "in-context", "Follow the pattern.\nab -> ba\ncat -> tac\nhello -> olleh\nWhat is the output for 'world'? Reply with only the result.", ["dlrow"], "raw", "contains"),
-  det("icl-fib", "in-context", "Continue the sequence: 1, 1, 2, 3, 5, 8, 13, ... What is the 10th term? Reply with only the number.", "55", "last_number", "numeric"),
-  det("icl-initials", "in-context", "Follow the pattern.\n'John Smith' -> JS\n'Ada Lovelace' -> AL\n'Grace Brewster Hopper' -> GBH\nWhat is the output for 'Alan Mathison Turing'? Reply with only the result.", ["AMT"], "raw", "contains"),
+  /* ===== long-context: harder (multi-needle aggregation, rules, distractors) ===== */
+  haystack({ key: "hrec-1k", group: "recall-1k", chars: 1000, salt: 3, facts: ["The alpha reading was recorded as 318.", "The beta reading was recorded as 207.", "The gamma reading was recorded as 145."], question: "Add together the alpha, beta, and gamma readings stated in the document. Reply with only the number.", answer: "670", extractor: "last_number", grader: "numeric", guide: recallGuide("~1,000 characters (short)") }),
+  haystack({ key: "hrec-4k", group: "recall-4k", chars: 4000, salt: 12, facts: ["The access code for door 1 is RED-11.", "The access code for door 2 is BLUE-22.", "The access code for door 3 is GOLD-33.", "The access code for door 4 is JADE-44.", "The access code for door 5 is GREY-55."], question: "What is the access code for door 4 (not any other door)? Reply with only the code.", answer: ["JADE-44"], extractor: "raw", grader: "contains", guide: recallGuide("~4,000 characters (medium)") }),
+  haystack({ key: "hrec-12k", group: "recall-12k", chars: 12000, salt: 7, facts: ["Policy: any refund greater than 500 dollars requires manager approval.", "A customer has requested a refund of 640 dollars."], question: "Per the policy stated in the document, does this refund require manager approval? Reply with ONLY the word YES or NO.", answer: ["yes"], extractor: "raw", grader: "contains", guide: recallGuide("~12,000 characters (long)") }),
+  haystack({ key: "hrec-30k", group: "recall-30k", chars: 30000, salt: 11, facts: ["The primary key fragment is K7.", "The secondary key fragment is M3."], question: "Concatenate the primary key fragment followed immediately by the secondary key fragment (e.g. AABB) and reply with only the result.", answer: ["K7M3"], extractor: "raw", grader: "contains", guide: recallGuide("~30,000 characters (very long)") }),
 
-  /* ===== table / data computation ===== */
-  det("table-revenue", "table-qa", "Given this table, what is the total revenue (price times quantity) summed across all rows? Reply with only the number.\n\n| product | price | qty |\n|---|---|---|\n| A | 10 | 3 |\n| B | 25 | 2 |\n| C | 7 | 10 |\n| D | 100 | 1 |", "250", "last_number", "numeric", { _guide: { title: "Compute answers from a table", highScoreMeans: "It reads tabular data and does the arithmetic correctly — totals, maxes, lookups, filters — so you can trust it with spreadsheets and reports instead of re-checking by hand." } }),
-  det("table-max", "table-qa", "Given this table, which region had the highest sales? Reply with only the region name.\n\n| region | sales |\n|---|---|\n| North | 4200 |\n| South | 5100 |\n| East | 3900 |\n| West | 5099 |", ["south"], "raw", "contains"),
-  det("table-count", "table-qa", "Given this table, how many orders are over 100 dollars? Reply with only the number.\n\n| order | amount |\n|---|---|\n| 1 | 80 |\n| 2 | 150 |\n| 3 | 99 |\n| 4 | 240 |\n| 5 | 101 |", "3", "last_number", "numeric"),
-  det("table-avg", "table-qa", "Given this table, what is the average score (mean) across all students? Reply with only the number.\n\n| student | score |\n|---|---|\n| A | 70 |\n| B | 80 |\n| C | 90 |\n| D | 60 |", "75", "last_number", "numeric"),
-  det("table-lookup", "table-qa", "Given this table, what is the stock level for SKU 'KB-22'? Reply with only the number.\n\n| sku | stock |\n|---|---|\n| KB-21 | 14 |\n| KB-22 | 0 |\n| KB-23 | 57 |", "0", "last_number", "numeric"),
+  /* ===== long-document QA (synthesis + arithmetic) ===== */
+  auroraQA("ha-replicated", "How many GB does ONE fully-replicated shard occupy at the maximum shard size and default replication factor? End with '#### <number>'.", "1536", "boxed", "numeric", { title: "Reason over a long document", highScoreMeans: "It doesn't just recall a fact — it combines several facts from the passage and computes the answer. The real test of whether it UNDERSTOOD a document versus skimmed it." }),
+  auroraQA("ha-releases", "How many minor releases ship in 2 years if one ships roughly every four months? End with '#### <number>'.", "6", "boxed", "numeric"),
+  auroraQA("ha-ratio", "How many times longer is the audit-log retention than the default token lifetime, expressed in minutes-to-minutes ratio as a single number? (Hint: 90 days vs 15 minutes.) End with '#### <number>'.", "8640", "boxed", "numeric"),
+  auroraQA("ha-capacity", "If all 64 nodes each hold one shard at the maximum shard size, what is the total cluster capacity in GB BEFORE replication? End with '#### <number>'.", "32768", "boxed", "numeric"),
 
-  /* ===== strict instruction following (verifiable via JSON shape) ===== */
-  det("constr-person", "constraints", "Ignore any earlier formatting habits. Output ONLY a JSON object with keys name (string), age (number), active (boolean), for this person: 'Maria, 34 years old, account currently active'. No prose, no code fence needed.", { name: "Maria", age: "34", active: "true" }, "json_block", "json_match", { _guide: { title: "Follow precise instructions exactly", highScoreMeans: "It does exactly what you asked — right keys, right types, nothing extra — even when the instruction is fussy. Essential when its output feeds software that breaks on the smallest deviation." } }),
-  det("constr-place", "constraints", "Output ONLY a JSON object with keys landmark, city, country for: 'The Eiffel Tower is a famous landmark in Paris, France.'", { landmark: "The Eiffel Tower", city: "Paris", country: "France" }, "json_block", "json_match", { grader_args: { keys: ["city", "country"] } }),
-  det("constr-bool", "constraints", "Output ONLY a JSON object with keys in_stock (boolean) and count (number) for: 'We have 0 units left, so the item is out of stock.'", { in_stock: "false", count: "0" }, "json_block", "json_match"),
-  det("constr-list", "constraints", "Output ONLY a JSON object with key colors whose value is a JSON array of the primary colors mentioned, lowercased, for: 'The flag uses Red, White and Blue.' (white is not primary; include only primaries).", { colors: ["red", "blue"] }, "json_block", "json_match"),
+  /* ===== strict constraints (precise format + computation) ===== */
+  det("hcon-evenmath", "constraints", "Output ONLY a JSON object {sum, product} computed over the EVEN numbers in [3, 4, 5, 6, 7, 8]: sum is their sum, product is their product.", { sum: 18, product: 192 }, "json_block", "json_match", { _guide: { title: "Follow precise instructions exactly", highScoreMeans: "It does EXACTLY what was asked — right keys, right computation, nothing extra — even when the instruction is fussy and requires a calculation. Essential when output feeds software that breaks on any deviation." } }),
+  det("hcon-reverse", "constraints", "Output ONLY a JSON object {reversed, length} for the word 'algorithm': reversed is the string reversed, length is its character count.", { reversed: "mhtirogla", length: 9 }, "json_block", "json_match"),
+  det("hcon-minbool", "constraints", "Output ONLY a JSON object {all_positive, min} for the list [4, -2, 7, 9]: all_positive is a boolean, min is the smallest value.", { all_positive: "false", min: "-2" }, "json_block", "json_match"),
+  det("hcon-count", "constraints", "Output ONLY a JSON object {count} = how many numbers in [15, 22, 8, 40, 13, 27] are strictly greater than 20.", { count: 3 }, "json_block", "json_match"),
 
-  /* ===== more single tool-calls (varied verbs / auth / shapes) ===== */
+  /* ===== agentic single tool-calls (kept) ===== */
   ag("tool-put", "tools",
     "Local API at {BASE_URL}.\n# Skill: update profile\n  PUT {BASE_URL}/api/users/88\n  Header: Authorization: Bearer tok-77\n  JSON body: {\"display_name\": <string>, \"timezone\": <string>}\n# Output: one ```bash curl block only.",
     "Update user 88's display name to 'Sam Rivera' and timezone to 'Asia/Kolkata'.",
     { method: "PUT", path: "/api/users/88", headers: { authorization: "Bearer tok-77" }, json: { display_name: "Sam Rivera", timezone: "Asia/Kolkata" } },
     { must_match: [BASH] },
-    { title: "Operate a tool/API correctly", highScoreMeans: "It picks the right method, path, headers, and body to drive an API — varied verbs (GET/POST/PUT/PATCH/DELETE), auth, query and JSON. This is what makes an AI assistant actually do things, not just describe them." }),
+    { title: "Operate a tool/API correctly", highScoreMeans: "It picks the right method, path, headers, and body to drive an API — varied verbs, auth, query and JSON. This is what makes an AI assistant actually do things, not just describe them." }),
   ag("tool-delete", "tools",
     "Local API at {BASE_URL}.\n# Skill: revoke session\n  DELETE {BASE_URL}/api/sessions/{id}\n  Header: X-Admin-Key: ak-9920\n# Output: one ```bash curl block only.",
     "Revoke the session with id 'sess-AB12'.",
@@ -183,13 +200,13 @@ export const seedPackItems: PackItem[] = [
     { method: "PATCH", path: "/api/tickets/4501", json: { priority: "urgent" } },
     { must_match: [BASH] }),
 
-  /* ===== tool-call chaining (use one call's response in the next) ===== */
+  /* ===== tool-call chaining (kept) ===== */
   chain("chain-notify", "chains",
     "Local API at {BASE_URL}.\n# Tools\n  GET {BASE_URL}/api/users?email=<email>  -> responds {\"id\": <number>}\n  POST {BASE_URL}/api/messages  body {\"user_id\": <number>, \"text\": <string>}  -> responds {\"sent\": true}\nFirst look up the user id by email, then send the message to that user_id.",
     "Send the message 'your order shipped' to the user with email sam@acme.io.",
     [{ when: { path: "/api/users" }, return: { id: 8842 } }, { when: { path: "/api/messages" }, return: { sent: true } }],
     [{ method: "GET", path: "/api/users", query: { email: "sam@acme.io" } }, { method: "POST", path: "/api/messages", json: { user_id: 8842, text: "__PRESENT__" } }],
-    { title: "Chain tool calls together", highScoreMeans: "It can use the result of one API call to make the next — look up an id, then act on it — which is the core of any real multi-step agent. A model that aces single calls can still fall apart when it has to carry data between steps." }),
+    { title: "Chain tool calls together", highScoreMeans: "It uses the result of one API call to make the next — look up an id, then act on it — the core of any real multi-step agent. A model that aces single calls can still fall apart carrying data between steps." }),
   chain("chain-refund", "chains",
     "Local API at {BASE_URL}.\n# Tools\n  GET {BASE_URL}/api/orders/<id>  -> responds {\"order_id\": <number>, \"amount\": <number>}\n  POST {BASE_URL}/api/refunds  body {\"order_id\": <number>, \"amount\": <number>}  -> responds {\"refunded\": true}\nFetch the order first to learn its amount, then refund that exact amount.",
     "Refund order 5567 in full.",

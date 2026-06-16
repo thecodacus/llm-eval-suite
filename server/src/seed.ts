@@ -8,30 +8,9 @@ export const seedModels = [
 
 type Seed = { suite: Suite; task_group: string; config: any };
 
+// NOTE: deterministic tests now live entirely in seed-pack.ts (hard set, reconciled
+// by _seed key). This base seed only carries models + base agentic + subjective.
 export const seedItems: Seed[] = [
-  // ---- deterministic: math ----
-  { suite: "deterministic", task_group: "math", config: { prompt: "A train leaves Station A at 9:00 AM going east at 60 mph. Another leaves Station B at 9:30 AM going west at 80 mph. Stations are 280 miles apart. How many miles from Station A do they meet? Give just the number.", answer: "90", extractor: "last_number", grader: "numeric", thinking: true } },
-  { suite: "deterministic", task_group: "math", config: { prompt: "Natalia sold clips to 48 friends in April, then half as many in May. How many clips altogether? End with '#### <number>'.", answer: "72", extractor: "boxed", grader: "numeric", thinking: true } },
-  { suite: "deterministic", task_group: "math", config: { prompt: "What is 17 * 24? Give just the number.", answer: "408", extractor: "last_number", grader: "numeric" } },
-  { suite: "deterministic", task_group: "math", config: { prompt: "A rectangle is 7 cm by 12 cm. Area in square cm? Give just the number.", answer: "84", extractor: "last_number", grader: "numeric" } },
-
-  // ---- deterministic: code ----
-  { suite: "deterministic", task_group: "code", config: { prompt: "Write a Python function `is_palindrome(s)` returning True if the string is a palindrome ignoring case, spaces, punctuation. Return only the code.", answer: "assert is_palindrome('A man, a plan, a canal: Panama')\nassert not is_palindrome('hello')\nassert is_palindrome('')", extractor: "code_block", grader: "code_tests" } },
-  { suite: "deterministic", task_group: "code", config: { prompt: "Write a Python function `two_sum(nums, target)` returning indices of the two numbers adding to target. Return only the code.", answer: "r = two_sum([2,7,11,15], 9)\nassert sorted(r) == [0,1]", extractor: "code_block", grader: "code_tests" } },
-  { suite: "deterministic", task_group: "code", config: { prompt: "Write a Python function `fizzbuzz(n)` returning a list 1..n with 'Fizz'/'Buzz'/'FizzBuzz' rules, else the number as string. Return only the code.", answer: "assert fizzbuzz(5) == ['1','2','Fizz','4','Buzz']\nassert fizzbuzz(15)[-1] == 'FizzBuzz'", extractor: "code_block", grader: "code_tests" } },
-
-  // ---- deterministic: extract ----
-  { suite: "deterministic", task_group: "extract", config: { prompt: "Output ONLY the email: 'reach me at sarah.chen@acme.co.uk after 5pm'.", answer: "sarah.chen@acme.co.uk", extractor: "raw", grader: "exact" } },
-  { suite: "deterministic", task_group: "extract", config: { prompt: "Output ONLY the order total as a number: 'Your order #4821 came to $129.50 including tax.'", answer: "129.50", extractor: "last_number", grader: "numeric" } },
-  { suite: "deterministic", task_group: "extract", config: { prompt: "Output ONLY a JSON object with keys store, total from: 'Receipt — BlueMart, TOTAL 58.20'.", answer: { store: "BlueMart", total: "58.20" }, extractor: "json_block", grader: "json_match" } },
-
-  // ---- deterministic: classify ----
-  { suite: "deterministic", task_group: "classify", config: { prompt: "Sentiment as one word (positive/negative/neutral), reply ONLY that word:\n'the battery life ruined an otherwise decent phone.'", answer: ["negative"], extractor: "raw", grader: "contains" } },
-  { suite: "deterministic", task_group: "classify", config: { prompt: "Spam or ham? Reply ONLY 'spam' or 'ham':\n'CONGRATS!! You won a $1000 gift card, click here now!!!'", answer: ["spam"], extractor: "raw", grader: "contains" } },
-
-  // ---- deterministic: toolcall (structured JSON, no execution) ----
-  { suite: "deterministic", task_group: "toolcall", config: { prompt: "Output ONLY a JSON object: a call to set_timer with duration_minutes=10 and label='tea'. Shape {\"name\":...,\"args\":{...}}.", answer: { name: "set_timer" }, extractor: "json_block", grader: "json_match", grader_args: { keys: ["name"] }, system: "You output only valid JSON." } },
-
   // ---- agentic: skill + exact format + real curl ----
   { suite: "agentic", task_group: "notify", config: {
       skills: "You are an automation agent with access to a local HTTP API at {BASE_URL}.\n\n# Skill: notify\n  Endpoint: POST {BASE_URL}/api/notify\n  Required headers: Content-Type: application/json, X-Auth: token-abc123\n  JSON body: {\"channel\": <string, no leading #>, \"priority\": \"low\"|\"normal\"|\"high\", \"message\": <string>}\n\n# Output format — follow EXACTLY:\nLine 1: THOUGHT: <one sentence>\nThen a single fenced ```bash code block with exactly one curl command.\nFinal line: STATUS: SENT",
