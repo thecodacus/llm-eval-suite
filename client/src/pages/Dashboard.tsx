@@ -60,7 +60,7 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
             <XAxis type="category" dataKey="model_id" tick={axis} stroke={AXIS_LINE} interval={0} />
             <YAxis type="number" domain={[0, 100]} tick={axis} stroke={AXIS_LINE} unit="%" />
             <Tooltip {...tt} cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(v: any, _n, p: any) => [`${v}%  (${p.payload.pass}/${p.payload.n})`, "pass"]} />
-            <Bar dataKey="pct" radius={[4, 4, 0, 0]} maxBarSize={90} isAnimationActive={false}>
+            <Bar dataKey="pct" radius={[4, 4, 0, 0]} maxBarSize={90}>
               {d.byModel.map((m) => <Cell key={m.model_id} fill={colorOf(m.model_id)} />)}
               <LabelList dataKey="pct" position="top" fill="#ececec" fontSize={12} formatter={(v: any) => `${v}%`} />
             </Bar>
@@ -84,7 +84,7 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
             <Tooltip {...tt} cursor={{ strokeDasharray: "3 3" }}
               formatter={(v: any, n: any) => [n === "speed" ? `${v} t/s` : n === "score" ? `${v}%` : v, n]}
               labelFormatter={() => ""} />
-            <Scatter data={bubble} isAnimationActive={false}>
+            <Scatter data={bubble}>
               {bubble.map((b) => <Cell key={b.name} fill={colorOf(b.name)} fillOpacity={0.8} />)}
               <LabelList dataKey="name" position="top" fill="#ececec" fontSize={11} fontWeight={500} />
             </Scatter>
@@ -101,7 +101,7 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
             <XAxis type="category" dataKey="task_group" tick={{ ...axis, fontSize: 11 }} stroke={AXIS_LINE} interval={0} angle={-40} textAnchor="end" height={70} />
             <YAxis type="number" domain={[0, 100]} tick={axis} stroke={AXIS_LINE} unit="%" />
             <Tooltip {...tt} cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(v: any) => [`${v}%`, "pass"]} />
-            <Bar dataKey="pct" radius={[4, 4, 0, 0]} fill="#56ccf2" maxBarSize={48} isAnimationActive={false}>
+            <Bar dataKey="pct" radius={[4, 4, 0, 0]} fill="#56ccf2" maxBarSize={48}>
               <LabelList dataKey="pct" position="top" fill="#ececec" fontSize={11} formatter={(v: any) => `${v}%`} />
             </Bar>
           </BarChart>
@@ -124,7 +124,7 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
                   <XAxis dataKey="model_id" tick={{ ...axis, fontSize: 10 }} stroke={AXIS_LINE} interval={0} />
                   <YAxis domain={[0, 100]} ticks={[0, 50, 100]} tick={{ ...axis, fontSize: 10 }} stroke={AXIS_LINE} width={30} unit="%" />
                   <Tooltip {...tt} cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(v: any, _n, p: any) => [`${v}%  (${p.payload.pass}/${p.payload.n})`, "pass"]} />
-                  <Bar dataKey="pct" radius={[3, 3, 0, 0]} maxBarSize={48} isAnimationActive={false}>
+                  <Bar dataKey="pct" radius={[3, 3, 0, 0]} maxBarSize={48}>
                     {rows.map((r) => <Cell key={r.model_id} fill={colorOf(r.model_id)} />)}
                     <LabelList dataKey="pct" position="top" fill="#ececec" fontSize={10} formatter={(v: any) => `${v}%`} />
                   </Bar>
