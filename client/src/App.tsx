@@ -11,7 +11,7 @@ import { Icon } from "./icons";
 type Tab = "guide" | "dashboard" | "run" | "results" | "build" | "models";
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("guide");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [reviewRun, setReviewRun] = useState<number | null>(null);
   const [guideGroup, setGuideGroup] = useState<string | null>(null);
 
@@ -19,12 +19,12 @@ export default function App() {
   const openGuide = (group: string) => { setReviewRun(null); setGuideGroup(group); setTab("guide"); };
 
   const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: "guide", label: "Guide", icon: "book" },
     { id: "dashboard", label: "Dashboard", icon: "dashboard" },
     { id: "run", label: "Run", icon: "play" },
     { id: "results", label: "Results", icon: "checks" },
     { id: "build", label: "Build", icon: "hammer" },
     { id: "models", label: "Models", icon: "server" },
+    { id: "guide", label: "Guide", icon: "book" },
   ];
 
   return (
