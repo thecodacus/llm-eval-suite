@@ -30,6 +30,39 @@ docker run -d -p 8080:8080 -v eval-data:/data \
   ghcr.io/thecodacus/llm-eval-suite:latest
 ```
 
+### Deploy with Portainer (Stack)
+The GHCR image is **public**, so no registry credentials are needed. In Portainer:
+**Stacks → Add stack → Web editor**, paste the YAML below, then **Deploy the stack**.
+Open `http://<your-server>:8080`.
+
+```yaml
+services:
+  llm-eval-suite:
+    image: ghcr.io/thecodacus/llm-eval-suite:latest
+    container_name: llm-eval-suite
+    ports:
+      - "8080:8080"          # change the left side to use another host port
+    volumes:
+      - eval-data:/data      # SQLite db persists here
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # lets the app reach LM Studio/Ollama on the host
+
+volumes:
+  eval-data:
+```
+
+Notes:
+- **Reaching your models:** point each model's `base_url` (in the Models tab) at
+  `http://host.docker.internal:1234/v1` (LM Studio) or `:11434/v1` (Ollama) to hit
+  servers running on the Docker host. If your model server runs in another container,
+  use its service/container name instead.
+- **Updating:** to redeploy a new build, in the stack hit **Pull and redeploy** (or
+  enable Portainer's image-polling). Pin to a specific build by replacing `:latest`
+  with a tag like `:sha-6650f4d`.
+- **Data safety:** the named volume `eval-data` keeps your models, runs, and verdicts
+  across redeploys.
+
 ## Use it
 1. **Models** tab — add each candidate (id, `base_url`, model name). Seeded with examples.
 2. **Run** tab — pick a suite, the models, optionally specific task groups, hit run.
