@@ -160,12 +160,15 @@ app.post("/api/runs/:id/verdicts", async (req) => {
 
 /* ---------------- dashboard (aggregate across all recorded auto-graded runs) ---------------- */
 app.get("/api/dashboard", async () => {
+  // Only count results whose parent run still exists — a run deleted mid-flight
+  // can leave orphaned result rows that must not pollute the aggregate scores.
+  const LIVE = "passed IS NOT NULL AND run_id IN (SELECT id FROM runs)";
   const byModelGroup = db.prepare(
     `SELECT model_id, task_group,
             SUM(passed) AS pass, COUNT(*) AS n,
             ROUND(100.0*SUM(passed)/COUNT(*),1) AS pct,
             ROUND(AVG(tok_per_s),1) AS avg_tok_s
-     FROM results WHERE passed IS NOT NULL
+     FROM results WHERE ${LIVE}
      GROUP BY model_id, task_group`
   ).all();
   const byModel = db.prepare(
@@ -173,18 +176,18 @@ app.get("/api/dashboard", async () => {
             SUM(passed) AS pass, COUNT(*) AS n,
             ROUND(100.0*SUM(passed)/COUNT(*),1) AS pct,
             ROUND(AVG(tok_per_s),1) AS avg_tok_s
-     FROM results WHERE passed IS NOT NULL
+     FROM results WHERE ${LIVE}
      GROUP BY model_id ORDER BY pct DESC`
   ).all();
   const byGroup = db.prepare(
     `SELECT task_group,
             ROUND(100.0*SUM(passed)/COUNT(*),1) AS pct, COUNT(*) AS n
-     FROM results WHERE passed IS NOT NULL
+     FROM results WHERE ${LIVE}
      GROUP BY task_group ORDER BY pct DESC`
   ).all();
   const totals = db.prepare(
     `SELECT COUNT(DISTINCT run_id) AS runs, COUNT(*) AS graded_results
-     FROM results WHERE passed IS NOT NULL`
+     FROM results WHERE ${LIVE}`
   ).get();
   return { byModel, byModelGroup, byGroup, totals };
 });

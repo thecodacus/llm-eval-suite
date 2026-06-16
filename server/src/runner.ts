@@ -17,6 +17,10 @@ const insResult = db.prepare(
    VALUES (@run_id,@model_id,@item_id,@task_group,@passed,@detail,@output,@tok_per_s,@total_s)`
 );
 const setStatus = db.prepare("UPDATE runs SET status=? WHERE id=?");
+const runExists = db.prepare("SELECT 1 FROM runs WHERE id=?");
+
+/** True once the run row is gone — i.e. the user deleted it mid-flight. */
+const aborted = (runId: number) => !runExists.get(runId);
 
 /** Kick off a run in the background; returns immediately. Progress via run status + results rows. */
 export function startRun(runId: number, suite: Suite, models: ModelRow[], items: ItemRow[]) {
@@ -39,6 +43,7 @@ export function startRun(runId: number, suite: Suite, models: ModelRow[], items:
 async function runDeterministic(runId: number, models: ModelRow[], items: ItemRow[]) {
   for (const model of models) {
     for (const item of items) {
+      if (aborted(runId)) { log(runId, "deleted mid-run — stopping"); return; }
       const cfg = JSON.parse(item.config);
       let sys: string | undefined = cfg.system;
       if (cfg.thinking && model.thinking) sys = (sys ? sys + "\n" : "") + THINK_SYS;
@@ -62,6 +67,7 @@ async function runAgentic(runId: number, models: ModelRow[], items: ItemRow[]) {
   try {
     for (const model of models) {
       for (const item of items) {
+        if (aborted(runId)) { log(runId, "deleted mid-run — stopping"); return; }
         const cfg = JSON.parse(item.config);
         cap.reset();
         const skills = String(cfg.skills).replaceAll("{BASE_URL}", base);
@@ -136,6 +142,7 @@ async function runChain(model: ModelRow, cfg: any, skills: string, prompt: strin
 
 async function runSubjective(runId: number, models: ModelRow[], items: ItemRow[]) {
   for (const item of items) {
+    if (aborted(runId)) { log(runId, "deleted mid-run — stopping"); return; }
     const cfg = JSON.parse(item.config);
     const msgs = [...(cfg.system ? [{ role: "system", content: cfg.system }] : []), { role: "user", content: cfg.prompt }];
     for (const model of models) {

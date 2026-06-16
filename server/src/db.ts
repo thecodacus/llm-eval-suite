@@ -56,6 +56,15 @@ CREATE TABLE IF NOT EXISTS verdicts (
 CREATE INDEX IF NOT EXISTS idx_results_run ON results(run_id);
 `);
 
+// Repair: drop orphaned results/verdicts left behind by runs that were deleted
+// mid-flight (the background runner can insert a few rows after the run row is
+// gone). These would otherwise skew the dashboard aggregates.
+{
+  const orphans = db.prepare("DELETE FROM results WHERE run_id NOT IN (SELECT id FROM runs)").run().changes;
+  db.prepare("DELETE FROM verdicts WHERE run_id NOT IN (SELECT id FROM runs)").run();
+  if (orphans) console.log(`cleaned ${orphans} orphaned result rows`);
+}
+
 // First-boot seed
 const haveModels = (db.prepare("SELECT count(*) c FROM models").get() as any).c;
 if (!haveModels) {
