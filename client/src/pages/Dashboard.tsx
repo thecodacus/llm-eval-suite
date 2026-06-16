@@ -36,6 +36,12 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
     x: m.avg_tok_s, y: m.pct, z: m.n, name: m.model_id,
   }));
 
+  // per-group rows for the small-multiples ("score by model" for each group)
+  const perGroup = groups.map((g) => ({
+    group: g,
+    rows: models.map((m) => cell(m, g)).filter(Boolean) as NonNullable<ReturnType<typeof cell>>[],
+  })).filter((x) => x.rows.length);
+
   return (
     <>
       <div className="row" style={{ gap: 12, marginBottom: 4 }}>
@@ -48,15 +54,15 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
       <div className="panel">
         <h2 className="sm"><Icon name="trophy" /> Overall score by model</h2>
         <p className="muted" style={{ fontSize: 13, marginTop: -6 }}>Pass rate across all auto-graded tests recorded so far.</p>
-        <ResponsiveContainer width="100%" height={Math.max(140, d.byModel.length * 46)}>
-          <BarChart data={d.byModel} layout="vertical" margin={{ left: 20, right: 40 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />
-            <XAxis type="number" domain={[0, 100]} tick={axis} stroke={GRID} unit="%" />
-            <YAxis type="category" dataKey="model_id" tick={axis} stroke={GRID} width={110} />
-            <Tooltip {...tt} formatter={(v: any, _n, p: any) => [`${v}%  (${p.payload.pass}/${p.payload.n})`, "pass"]} />
-            <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={d.byModel} margin={{ left: 0, right: 10, top: 18, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+            <XAxis type="category" dataKey="model_id" tick={axis} stroke={AXIS_LINE} interval={0} />
+            <YAxis type="number" domain={[0, 100]} tick={axis} stroke={AXIS_LINE} unit="%" />
+            <Tooltip {...tt} cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(v: any, _n, p: any) => [`${v}%  (${p.payload.pass}/${p.payload.n})`, "pass"]} />
+            <Bar dataKey="pct" radius={[4, 4, 0, 0]} maxBarSize={90} isAnimationActive={false}>
               {d.byModel.map((m) => <Cell key={m.model_id} fill={colorOf(m.model_id)} />)}
-              <LabelList dataKey="pct" position="right" fill="#ececec" fontSize={12} formatter={(v: any) => `${v}%`} />
+              <LabelList dataKey="pct" position="top" fill="#ececec" fontSize={12} formatter={(v: any) => `${v}%`} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -78,7 +84,7 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
             <Tooltip {...tt} cursor={{ strokeDasharray: "3 3" }}
               formatter={(v: any, n: any) => [n === "speed" ? `${v} t/s` : n === "score" ? `${v}%` : v, n]}
               labelFormatter={() => ""} />
-            <Scatter data={bubble}>
+            <Scatter data={bubble} isAnimationActive={false}>
               {bubble.map((b) => <Cell key={b.name} fill={colorOf(b.name)} fillOpacity={0.8} />)}
               <LabelList dataKey="name" position="top" fill="#ececec" fontSize={11} fontWeight={500} />
             </Scatter>
@@ -89,17 +95,44 @@ export default function Dashboard({ onExplain }: { onExplain: (group: string) =>
       <div className="panel">
         <h2 className="sm"><Icon name="chart" /> Hardest tests (lowest pass rate)</h2>
         <p className="muted" style={{ fontSize: 13, marginTop: -6 }}>Averaged across all models — shows where models struggle. Click a bar's test in the table below to learn what it means.</p>
-        <ResponsiveContainer width="100%" height={Math.max(140, d.byGroup.length * 40)}>
-          <BarChart data={[...d.byGroup].sort((a, b) => a.pct - b.pct)} layout="vertical" margin={{ left: 20, right: 40 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />
-            <XAxis type="number" domain={[0, 100]} tick={axis} stroke={GRID} unit="%" />
-            <YAxis type="category" dataKey="task_group" tick={axis} stroke={GRID} width={90} />
-            <Tooltip {...tt} formatter={(v: any) => [`${v}%`, "pass"]} />
-            <Bar dataKey="pct" radius={[0, 4, 4, 0]} fill="#39c5cf">
-              <LabelList dataKey="pct" position="right" fill="#ececec" fontSize={12} formatter={(v: any) => `${v}%`} />
+        <ResponsiveContainer width="100%" height={340}>
+          <BarChart data={[...d.byGroup].sort((a, b) => a.pct - b.pct)} margin={{ left: 0, right: 10, top: 18, bottom: 70 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+            <XAxis type="category" dataKey="task_group" tick={{ ...axis, fontSize: 11 }} stroke={AXIS_LINE} interval={0} angle={-40} textAnchor="end" height={70} />
+            <YAxis type="number" domain={[0, 100]} tick={axis} stroke={AXIS_LINE} unit="%" />
+            <Tooltip {...tt} cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(v: any) => [`${v}%`, "pass"]} />
+            <Bar dataKey="pct" radius={[4, 4, 0, 0]} fill="#56ccf2" maxBarSize={48} isAnimationActive={false}>
+              <LabelList dataKey="pct" position="top" fill="#ececec" fontSize={11} formatter={(v: any) => `${v}%`} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      <div className="panel">
+        <h2 className="sm"><Icon name="chart" /> Score by model — per test group</h2>
+        <p className="muted" style={{ fontSize: 13, marginTop: -6 }}>One chart per group. Click a title for what the test means.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14, marginTop: 12 }}>
+          {perGroup.map(({ group, rows }) => (
+            <div key={group} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "12px 12px 6px" }}>
+              <div className="row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
+                <a style={{ cursor: "pointer", fontWeight: 600, fontSize: 13 }} onClick={() => onExplain(group)} title={groupGuide(group).title}>{group}</a>
+                <span className="muted" style={{ fontSize: 11 }}>{rows[0]?.n} items</span>
+              </div>
+              <ResponsiveContainer width="100%" height={150}>
+                <BarChart data={rows} margin={{ left: -22, right: 4, top: 14, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+                  <XAxis dataKey="model_id" tick={{ ...axis, fontSize: 10 }} stroke={AXIS_LINE} interval={0} />
+                  <YAxis domain={[0, 100]} ticks={[0, 50, 100]} tick={{ ...axis, fontSize: 10 }} stroke={AXIS_LINE} width={30} unit="%" />
+                  <Tooltip {...tt} cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(v: any, _n, p: any) => [`${v}%  (${p.payload.pass}/${p.payload.n})`, "pass"]} />
+                  <Bar dataKey="pct" radius={[3, 3, 0, 0]} maxBarSize={48} isAnimationActive={false}>
+                    {rows.map((r) => <Cell key={r.model_id} fill={colorOf(r.model_id)} />)}
+                    <LabelList dataKey="pct" position="top" fill="#ececec" fontSize={10} formatter={(v: any) => `${v}%`} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="panel">
