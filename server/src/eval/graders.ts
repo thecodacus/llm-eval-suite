@@ -8,6 +8,15 @@ export type Grader = (pred: unknown, gold: unknown, args?: any) => GradeResult;
 
 const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
 
+// Parse a value as a number iff it cleanly looks like one (number, or a numeric
+// string). Lets JSON comparisons treat 58.20 (string) and 58.2 (number) as equal.
+const NUMERIC = /^[-+]?\d[\d,]*(\.\d+)?$/;
+function asNumber(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string" && NUMERIC.test(v.trim())) return parseFloat(v.replace(/,/g, ""));
+  return null;
+}
+
 const exact: Grader = (pred, gold) => {
   const p = norm(pred), g = norm(gold);
   return { passed: p === g, detail: `pred=${JSON.stringify(p)} gold=${JSON.stringify(g)}` };
@@ -39,8 +48,12 @@ export function subsetMatch(exp: any, got: any, path = "json"): string[] {
         if (!got[k]) fails.push(`${path}.${k}: present but empty`);
       } else fails.push(...subsetMatch(exp[k], got[k], `${path}.${k}`));
     }
-  } else if (norm(exp) !== norm(got)) {
-    fails.push(`${path}: expected ${JSON.stringify(exp)}, got ${JSON.stringify(got)}`);
+  } else {
+    const en = asNumber(exp), gn = asNumber(got);
+    const mismatch = en !== null && gn !== null
+      ? Math.abs(en - gn) > 1e-9          // both numeric → compare by value
+      : norm(exp) !== norm(got);          // otherwise → case-insensitive string
+    if (mismatch) fails.push(`${path}: expected ${JSON.stringify(exp)}, got ${JSON.stringify(got)}`);
   }
   return fails;
 }
