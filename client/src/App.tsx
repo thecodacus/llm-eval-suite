@@ -6,6 +6,7 @@ import Review from "./pages/Review";
 import Guide from "./pages/Guide";
 import Dashboard from "./pages/Dashboard";
 import Build from "./pages/Build";
+import { Icon } from "./icons";
 
 type Tab = "guide" | "dashboard" | "run" | "results" | "build" | "models";
 
@@ -17,18 +18,23 @@ export default function App() {
   const go = (t: Tab) => { setReviewRun(null); setGuideGroup(null); setTab(t); };
   const openGuide = (group: string) => { setReviewRun(null); setGuideGroup(group); setTab("guide"); };
 
-  const LABELS: Record<Tab, string> = {
-    guide: "Guide", dashboard: "Dashboard", run: "Run", results: "Results", build: "Build", models: "Models",
-  };
+  const TABS: { id: Tab; label: string; icon: string }[] = [
+    { id: "guide", label: "Guide", icon: "book" },
+    { id: "dashboard", label: "Dashboard", icon: "dashboard" },
+    { id: "run", label: "Run", icon: "play" },
+    { id: "results", label: "Results", icon: "checks" },
+    { id: "build", label: "Build", icon: "hammer" },
+    { id: "models", label: "Models", icon: "server" },
+  ];
 
   return (
     <>
       <header className="top">
-        <h1>🧪 LLM Eval Suite</h1>
+        <h1><span className="brand-badge"><Icon name="flask" size={20} /></span> LLM Eval Suite</h1>
         <nav className="row">
-          {(["guide", "dashboard", "run", "results", "build", "models"] as Tab[]).map((t) => (
-            <button key={t} className={tab === t && !reviewRun ? "active" : ""} onClick={() => go(t)}>
-              {LABELS[t]}
+          {TABS.map((t) => (
+            <button key={t.id} className={tab === t.id && !reviewRun ? "active" : ""} onClick={() => go(t.id)}>
+              <Icon name={t.icon} size={16} /> {t.label}
             </button>
           ))}
         </nav>

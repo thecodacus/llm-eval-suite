@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { Icon } from "../icons";
 
 interface Card { label: string; modelId: string; output: string; tokPerS: number | null; }
 interface Block { itemId: number; prompt: string; note: string; cards: Card[]; }
@@ -36,7 +37,7 @@ export default function Review({ runId, onBack }: { runId: number; onBack: () =>
         <h2>Blinded review · run #{runId} <span className="muted">— names hidden until you pick</span></h2>
         <div className="row">
           <span className="muted">{judged}/{blocks.length} judged</span>
-          <button className="btn ghost" onClick={onBack}>← back</button>
+          <button className="btn ghost" onClick={onBack}><Icon name="chevron-right" size={15} style={{ transform: "rotate(180deg)" }} /> back</button>
         </div>
       </div>
 

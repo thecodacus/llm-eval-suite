@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, Item, Model, Suite } from "../api";
+import { Icon } from "../icons";
 
 const SUITES: { id: Suite; label: string; blurb: string }[] = [
   { id: "deterministic", label: "Deterministic", blurb: "Auto-graded, high volume. Pass/fail, no judge." },
@@ -57,7 +58,7 @@ export default function Run({ onStarted }: { onStarted: () => void }) {
         <div className="row">
           {models.map((m) => (
             <span key={m.id} className={`chip ${picked.has(m.id) ? "on" : ""}`} onClick={() => toggle(picked, m.id, setPicked)}>
-              {picked.has(m.id) ? "✓ " : ""}{m.id}
+              {picked.has(m.id) && <Icon name="check" size={14} />}{m.id}
             </span>
           ))}
         </div>
@@ -77,7 +78,7 @@ export default function Run({ onStarted }: { onStarted: () => void }) {
       </div>
 
       <button className="btn" disabled={busy || !picked.size || !selectedItems.length} onClick={start}>
-        {busy ? "Starting…" : `Run ${suite} · ${picked.size} model(s) × ${selectedItems.length} items`}
+        <Icon name="play" size={16} />{busy ? "Starting…" : `Run ${suite} · ${picked.size} model(s) × ${selectedItems.length} items`}
       </button>
     </>
   );

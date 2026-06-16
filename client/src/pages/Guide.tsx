@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, Item } from "../api";
 import { SUITES, resolveGuide, explainItem } from "../guide";
+import { Icon } from "../icons";
 
 export default function Guide({ initialGroup, onClear }: { initialGroup?: string | null; onClear?: () => void }) {
   const [items, setItems] = useState<Item[]>([]);
@@ -38,19 +39,26 @@ export default function Guide({ initialGroup, onClear }: { initialGroup?: string
         const sm = SUITES[suite];
         return (
           <div className="panel" key={suite}>
-            <h2>{sm?.emoji} {sm?.label}</h2>
+            <h2 className="sm"><Icon name={sm?.icon ?? "flask"} size={20} /> {sm?.label}</h2>
             <p className="muted" style={{ fontSize: 13, marginTop: -4 }}>{sm?.blurb}</p>
-            <div className="cards" style={{ marginTop: 12 }}>
+            <div className="cards" style={{ marginTop: 14 }}>
               {groups.map((g) => {
                 const gItems = items.filter((i) => i.task_group === g);
                 const gg = resolveGuide(g, gItems);
                 const n = gItems.length;
                 return (
-                  <div className="card" key={g} onClick={() => setSelected(g)} style={{ cursor: "pointer" }}>
-                    <div style={{ fontSize: 15 }}><b>{gg.emoji} {gg.title}</b></div>
-                    <div className="muted" style={{ fontSize: 13, margin: "4px 0 8px" }}>{gg.tagline}</div>
-                    <div style={{ fontSize: 13 }}>{gg.whatItChecks}</div>
-                    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{n} test{n === 1 ? "" : "s"} · read more →</div>
+                  <div className="card" key={g} onClick={() => setSelected(g)}>
+                    <div className="row" style={{ gap: 12, flexWrap: "nowrap" }}>
+                      <span className="icon-tile"><Icon name={gg.icon} size={22} /></span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700 }}>{gg.title}</div>
+                        <div className="muted" style={{ fontSize: 12.5 }}>{gg.tagline}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, margin: "10px 0 8px" }}>{gg.whatItChecks}</div>
+                    <div className="muted" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                      {n} test{n === 1 ? "" : "s"} · read more <Icon name="chevron-right" size={13} />
+                    </div>
                   </div>
                 );
               })}
@@ -69,20 +77,25 @@ function Detail({ group, items, onBack }: { group: string; items: Item[]; onBack
   return (
     <>
       <div className="panel row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <h2 style={{ fontSize: 20 }}>{gg.emoji} {gg.title}</h2>
-          <div className="muted">{sm?.emoji} {sm?.label} · {gg.tagline}</div>
+        <div className="row" style={{ gap: 14, flexWrap: "nowrap" }}>
+          <span className="icon-tile" style={{ width: 52, height: 52 }}><Icon name={gg.icon} size={26} /></span>
+          <div>
+            <h2 className="sm" style={{ fontSize: 20, marginBottom: 2 }}>{gg.title}</h2>
+            <div className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name={sm?.icon ?? "flask"} size={14} /> {sm?.label} · {gg.tagline}
+            </div>
+          </div>
         </div>
-        <button className="btn ghost" onClick={onBack}>← all tests</button>
+        <button className="btn ghost" onClick={onBack}><Icon name="chevron-right" size={15} style={{ transform: "rotate(180deg)" }} /> all tests</button>
       </div>
 
       <div className="panel">
-        <h2>What this test checks</h2>
+        <h2 className="sm">What this test checks</h2>
         <p>{gg.whatItChecks}</p>
       </div>
 
-      <div className="panel" style={{ borderColor: "var(--green)" }}>
-        <h2>✅ What a high score means for you</h2>
+      <div className="panel" style={{ boxShadow: "var(--neu-raised), inset 0 0 0 2px var(--green-soft)" }}>
+        <h2 className="sm"><Icon name="badge-check" style={{ color: "var(--green)" }} /> What a high score means for you</h2>
         <p style={{ fontSize: 15 }}>{gg.highScoreMeans}</p>
         {gg.examples.length > 0 && (
           <>
@@ -94,13 +107,13 @@ function Detail({ group, items, onBack }: { group: string; items: Item[]; onBack
         )}
       </div>
 
-      <div className="panel" style={{ borderColor: "var(--amber)" }}>
-        <h2>🎯 Is this score relevant to you?</h2>
+      <div className="panel" style={{ boxShadow: "var(--neu-raised), inset 0 0 0 2px var(--accent-soft)" }}>
+        <h2 className="sm"><Icon name="target" style={{ color: "var(--accent)" }} /> Is this score relevant to you?</h2>
         <p>{gg.relevance}</p>
       </div>
 
       <div className="panel">
-        <h2>The actual tests we run ({items.length})</h2>
+        <h2 className="sm">The actual tests we run ({items.length})</h2>
         <p className="muted" style={{ fontSize: 13 }}>Exactly what the model is asked, and what counts as passing.</p>
         {items.map((it) => {
           const cfg = JSON.parse(it.config);

@@ -1,97 +1,208 @@
+/* ============================================================
+   Neumorphic Tech Schematic — design system (see design.md)
+   Light, soft UI: dual shadows define raised/inset surfaces.
+   ============================================================ */
 :root {
-  --bg: #0d1117;
-  --panel: #161b22;
-  --border: #30363d;
-  --fg: #e6edf3;
-  --muted: #7d8590;
-  --accent: #58a6ff;
-  --green: #3fb950;
-  --red: #f85149;
-  --amber: #d29922;
+  --bg: #f4f6f8;
+  --text: #2c2c2c;
+  --muted: #8a92a6;
+  --accent: #eb5757;
+  --accent-dark: #d8474a;
+  --accent-soft: #fdecec;
+  --shadow-dark: #d1d9e6;
+  --shadow-light: #ffffff;
+  --green: #27ae60;
+  --green-soft: #e7f6ee;
+  --red: #eb5757;
+  --line: rgba(209, 217, 230, 0.7);
+  --radius: 20px;
+  --radius-sm: 14px;
+
+  --neu-raised: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
+  --neu-raised-sm: 4px 4px 9px var(--shadow-dark), -4px -4px 9px var(--shadow-light);
+  --neu-inset: inset 3px 3px 7px var(--shadow-dark), inset -3px -3px 7px var(--shadow-light);
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
+
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--fg);
-  font: 15px/1.5 system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  font: 400 16px/1.6 "Roboto", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
-a { color: var(--accent); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-dark); }
+
+/* ---------- header / nav ---------- */
 header.top {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 14px 24px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  gap: 26px;
+  padding: 14px 28px;
+  background: var(--bg);
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 100;
+  box-shadow: 0 6px 16px -10px var(--shadow-dark);
 }
-header.top h1 { font-size: 17px; margin: 0; }
+header.top h1 {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 19px; font-weight: 700; margin: 0; letter-spacing: -0.02em;
+}
+header.top h1 .brand-badge {
+  display: grid; place-items: center; width: 36px; height: 36px;
+  border-radius: 12px; background: var(--bg); box-shadow: var(--neu-raised-sm); color: var(--accent);
+}
+nav.row { gap: 4px; }
 nav button {
-  background: none;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 6px 4px;
-  border-bottom: 2px solid transparent;
+  background: none; border: 0; cursor: pointer;
+  color: var(--muted); font: 500 14px/1 "Roboto", sans-serif;
+  padding: 9px 14px; border-radius: 10px; letter-spacing: 0.01em;
+  transition: color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  display: inline-flex; align-items: center; gap: 7px;
 }
-nav button.active { color: var(--fg); border-bottom-color: var(--accent); }
-main { padding: 24px; max-width: 1100px; margin: 0 auto; }
+nav button:hover { color: var(--text); }
+nav button.active { color: var(--accent); box-shadow: var(--neu-inset); }
+
+main {
+  padding: 28px 24px 80px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* ---------- panels / cards ---------- */
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 16px;
-}
-h2 { font-size: 15px; margin: 0 0 12px; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
-th { color: var(--muted); font-weight: 600; }
-button.btn {
-  background: #238636;
-  color: #fff;
-  border: 0;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-}
-button.btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--fg); }
-button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-input, select, textarea {
   background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 7px 9px;
-  font: inherit;
+  border-radius: var(--radius);
+  box-shadow: var(--neu-raised);
+  padding: 22px;
+  margin-bottom: 20px;
+  animation: rise 0.42s var(--ease) both;
 }
+main > .panel:nth-child(2) { animation-delay: 0.06s; }
+main > .panel:nth-child(3) { animation-delay: 0.12s; }
+main > .panel:nth-child(4) { animation-delay: 0.18s; }
+main > .panel:nth-child(5) { animation-delay: 0.24s; }
+
+h2 {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 1.5rem; font-weight: 700; margin: 0 0 14px; letter-spacing: -0.01em;
+}
+h2.sm { font-size: 1.05rem; }
+
+/* ---------- tables ---------- */
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; }
+thead th {
+  color: var(--muted); font-weight: 500; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--line);
+}
+tbody td { border-bottom: 1px solid var(--line); }
+tbody tr:last-child td { border-bottom: 0; }
+
+/* ---------- buttons ---------- */
+button.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--accent); color: #fff; border: 0;
+  padding: 10px 18px; border-radius: var(--radius-sm); cursor: pointer;
+  font: 600 14px/1 "Roboto", sans-serif;
+  box-shadow: 4px 4px 10px -2px rgba(235, 87, 87, 0.4);
+  transition: background 0.2s var(--ease), transform 0.1s var(--ease), box-shadow 0.2s var(--ease);
+}
+button.btn:hover { background: var(--accent-dark); transform: translateY(-1px); box-shadow: 6px 8px 16px -4px rgba(235, 87, 87, 0.45); }
+button.btn:active { transform: translateY(0); }
+button.btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none; }
+
+button.btn.ghost {
+  background: var(--bg); color: var(--text);
+  box-shadow: var(--neu-raised-sm);
+}
+button.btn.ghost:hover { color: var(--accent); transform: translateY(-1px); box-shadow: var(--neu-raised); }
+button.btn.ghost:active { box-shadow: var(--neu-inset); transform: none; }
+
+/* ---------- inputs ---------- */
+input, select, textarea {
+  background: var(--bg); color: var(--text);
+  border: 0; border-radius: 12px; padding: 10px 13px;
+  font: 400 14px/1.5 "Roboto", sans-serif;
+  box-shadow: var(--neu-inset);
+  transition: box-shadow 0.2s var(--ease);
+}
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.8; }
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  box-shadow: var(--neu-inset), 0 0 0 2px var(--accent);
+}
+textarea { resize: vertical; }
+input[type="checkbox"] { box-shadow: none; width: auto; accent-color: var(--accent); }
+
+/* ---------- chips ---------- */
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .chip {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 13px;
+  display: inline-flex; gap: 7px; align-items: center;
+  padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  font-size: 13px; font-weight: 500; color: var(--text);
+  background: var(--bg); box-shadow: var(--neu-raised-sm);
+  transition: color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-.chip.on { border-color: var(--accent); background: #132034; }
+.chip:hover { color: var(--accent); }
+.chip.on { color: var(--accent); box-shadow: var(--neu-inset); }
+
+/* ---------- semantic + utility ---------- */
 .pass { color: var(--green); }
 .fail { color: var(--red); }
 .muted { color: var(--muted); }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-pre { white-space: pre-wrap; word-break: break-word; margin: 0; }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
-.card { background: var(--bg); border: 2px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; }
-.card:hover { border-color: var(--accent); }
-.card.win { border-color: var(--green); background: #0f2417; }
+.mono { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 12.5px; }
+pre {
+  white-space: pre-wrap; word-break: break-word; margin: 0;
+  font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+pre.surface, .code-surface {
+  background: var(--bg); border-radius: 12px; padding: 12px 14px; box-shadow: var(--neu-inset);
+}
+
+/* ---------- selectable cards ---------- */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.card {
+  background: var(--bg); border-radius: var(--radius); padding: 18px;
+  box-shadow: var(--neu-raised-sm); cursor: pointer;
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.card:hover { transform: translateY(-3px); box-shadow: var(--neu-raised); }
+.card.win { box-shadow: var(--neu-inset), inset 0 0 0 2px var(--green); }
 .card .out { max-height: 320px; overflow: auto; font-size: 13px; margin-top: 8px; }
-.reveal { color: var(--amber); font-size: 12px; margin-top: 8px; }
-.bar { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
-.bar > span { display: block; height: 100%; background: var(--green); }
+.reveal { color: var(--accent); font-size: 12px; margin-top: 8px; font-weight: 500; }
+
+/* round neumorphic icon tile (hub/spoke flavour) */
+.icon-tile {
+  display: grid; place-items: center; width: 44px; height: 44px;
+  border-radius: 14px; background: var(--bg); box-shadow: var(--neu-raised-sm); color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ---------- motion ---------- */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--shadow-dark) 25%, #e6ebf2 37%, var(--shadow-dark) 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* ---------- scrollbar ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--shadow-dark); border-radius: 8px; border: 2px solid var(--bg); }

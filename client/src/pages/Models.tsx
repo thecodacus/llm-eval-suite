@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, Model } from "../api";
+import { Icon } from "../icons";
 
 const EMPTY: Partial<Model> = { id: "", base_url: "http://host.docker.internal:1234/v1", model: "", api_key: "not-needed", temperature: 0, max_tokens: 2048, timeout_s: 180, thinking: 0 };
 
@@ -36,7 +37,7 @@ export default function Models() {
           <label className="chip" style={{ cursor: "pointer" }}>
             <input type="checkbox" checked={!!form.thinking} onChange={(e) => setForm({ ...form, thinking: e.target.checked ? 1 : 0 })} /> thinking
           </label>
-          <button className="btn" onClick={save}>Save</button>
+          <button className="btn" onClick={save}><Icon name="plus" size={15} /> Save model</button>
         </div>
       </div>
 
@@ -51,8 +52,12 @@ export default function Models() {
                 <td className="mono">{m.model}</td>
                 <td className="mono muted">{m.base_url}</td>
                 <td>{m.thinking ? "yes" : "—"}</td>
-                <td><button className="btn ghost" onClick={() => setForm(m)}>edit</button>{" "}
-                  <button className="btn ghost" onClick={async () => { await api.deleteModel(m.id); load(); }}>✕</button></td>
+                <td>
+                  <div className="row" style={{ gap: 6 }}>
+                    <button className="btn ghost" style={{ padding: "6px 12px" }} onClick={() => setForm(m)}><Icon name="pencil" size={14} /> edit</button>
+                    <button className="btn ghost" style={{ padding: "6px 10px" }} onClick={async () => { await api.deleteModel(m.id); load(); }}><Icon name="trash" size={14} /></button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

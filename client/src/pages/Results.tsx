@@ -1,5 +1,11 @@
 import { Fragment, useEffect, useState } from "react";
 import { api, LbRow, Result, Run } from "../api";
+import { Icon } from "../icons";
+
+const PassMark = ({ p }: { p: number | null }) =>
+  p == null ? <Icon name="palette" size={15} className="muted" />
+    : p ? <Icon name="check" size={16} style={{ color: "var(--green)" }} />
+        : <Icon name="x" size={16} style={{ color: "var(--red)" }} />;
 
 export default function Results({ onReview, onExplain }: { onReview: (id: number) => void; onExplain: (group: string) => void }) {
   const [runs, setRuns] = useState<Run[]>([]);
@@ -53,7 +59,7 @@ export default function Results({ onReview, onExplain }: { onReview: (id: number
             <div className="panel">
               <div className="row" style={{ justifyContent: "space-between" }}>
                 <h2>Run #{run.id} · {run.suite} · <span className={run.status === "running" ? "muted" : "pass"}>{run.status}</span></h2>
-                {run.suite === "subjective" && <button className="btn" onClick={() => onReview(run.id)}>Open blinded review →</button>}
+                {run.suite === "subjective" && <button className="btn" onClick={() => onReview(run.id)}><Icon name="eye" size={15} /> Open blinded review</button>}
               </div>
               <p className="muted" style={{ fontSize: 13 }}>{new Date(run.created_at).toLocaleString()}</p>
             </div>
@@ -66,7 +72,7 @@ export default function Results({ onReview, onExplain }: { onReview: (id: number
                 </p>
                 <table>
                   <thead><tr><th>model</th>{groups.map((g) => (
-                    <th key={g}><a style={{ cursor: "pointer" }} title="What does this test mean?" onClick={() => onExplain(g)}>{g} ⓘ</a></th>
+                    <th key={g}><a style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3 }} title="What does this test mean?" onClick={() => onExplain(g)}>{g} <Icon name="info" size={12} /></a></th>
                   ))}<th>overall</th></tr></thead>
                   <tbody>
                     {models.map((m) => {
@@ -96,10 +102,11 @@ export default function Results({ onReview, onExplain }: { onReview: (id: number
                   {results.map((r) => (
                     <Fragment key={r.id}>
                       <tr style={{ cursor: "pointer" }} onClick={() => toggle(r.id)}>
-                        <td>{r.passed == null ? "·" : r.passed ? <span className="pass">✓</span> : <span className="fail">✗</span>}</td>
+                        <td><PassMark p={r.passed} /></td>
                         <td>{r.model_id}</td>
                         <td>{r.task_group}</td>
-                        <td className="mono muted" style={{ maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.detail}>{open.has(r.id) ? "▾ " : "▸ "}{r.detail}</td>
+                        <td className="mono muted" style={{ maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.detail}>
+                          <Icon name={open.has(r.id) ? "chevron-down" : "chevron-right"} size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />{r.detail}</td>
                         <td className="muted">{r.tok_per_s ? r.tok_per_s.toFixed(1) : "—"}</td>
                         <td className="muted">{r.total_s ? r.total_s.toFixed(1) : "—"}</td>
                       </tr>

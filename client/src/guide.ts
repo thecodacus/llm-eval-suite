@@ -1,26 +1,26 @@
 // Plain-language explainers so non-experts know what each test means for THEM.
 // Keyed by task_group. Scores aggregate per group, so that's the unit people care about.
 
-export interface SuiteMeta { key: string; label: string; emoji: string; blurb: string; }
+export interface SuiteMeta { key: string; label: string; icon: string; blurb: string; }
 
 export const SUITES: Record<string, SuiteMeta> = {
   deterministic: {
-    key: "deterministic", label: "Auto-graded", emoji: "✅",
+    key: "deterministic", label: "Auto-graded", icon: "badge-check",
     blurb: "Objective tests with one right answer. The computer checks them — no opinion involved, just pass or fail. These run in high volume.",
   },
   agentic: {
-    key: "agentic", label: "Doing things (agents)", emoji: "🤖",
+    key: "agentic", label: "Doing things (agents)", icon: "bot",
     blurb: "Tests whether the model can follow exact instructions AND correctly operate a tool/API — the foundation of AI that actually does things instead of just talking.",
   },
   subjective: {
-    key: "subjective", label: "Quality (you judge)", emoji: "🎨",
+    key: "subjective", label: "Quality (you judge)", icon: "palette",
     blurb: "Taste a script can't measure. The model's outputs are shown side-by-side with names hidden, and you pick the best. Removes brand bias so you judge on quality alone.",
   },
 };
 
 export interface GroupGuide {
   suite: string;
-  emoji: string;
+  icon: string;
   title: string;
   tagline: string;
   whatItChecks: string;
@@ -31,7 +31,7 @@ export interface GroupGuide {
 
 export const GROUPS: Record<string, GroupGuide> = {
   math: {
-    suite: "deterministic", emoji: "🧮", title: "Everyday math & word problems",
+    suite: "deterministic", icon: "calculator", title: "Everyday math & word problems",
     tagline: "Can it get the number right?",
     whatItChecks: "We give it arithmetic and short word problems (totals, rates, areas, multi-step questions) and check that it lands on the exact correct number.",
     highScoreMeans: "You can trust it with 'figure out the number' tasks without reaching for a calculator to double-check — splitting a bill, working out a discount, scaling a recipe, sanity-checking an invoice.",
@@ -39,7 +39,7 @@ export const GROUPS: Record<string, GroupGuide> = {
     relevance: "Matters if you use AI for money, budgeting, spreadsheets, or planning. You can ignore it if you only use it for writing and chat.",
   },
   code: {
-    suite: "deterministic", emoji: "💻", title: "Writing working code",
+    suite: "deterministic", icon: "code", title: "Writing working code",
     tagline: "Does the code it writes actually run?",
     whatItChecks: "We ask it to write small programs, then we actually run that code against hidden tests. It only passes if the code genuinely works — not if it merely looks correct.",
     highScoreMeans: "It writes code that works the first time, so you spend less time debugging the AI's mistakes. A model that scores low here will give you confident-looking code that quietly breaks.",
@@ -47,7 +47,7 @@ export const GROUPS: Record<string, GroupGuide> = {
     relevance: "Critical if you code or want to automate things. Completely ignorable if you never touch code.",
   },
   extract: {
-    suite: "deterministic", emoji: "🔍", title: "Pulling out the right info",
+    suite: "deterministic", icon: "scan", title: "Pulling out the right info",
     tagline: "Can it read a document and grab the exact fact?",
     whatItChecks: "We give it messy text — a receipt line, an email, a sentence — and ask it to pull out one specific thing (an email address, a total, a date) precisely.",
     highScoreMeans: "It reliably reads your documents and grabs the facts you need without inventing, garbling, or 'almost' getting them. Low scores here mean you'll have to re-check everything it pulls.",
@@ -55,7 +55,7 @@ export const GROUPS: Record<string, GroupGuide> = {
     relevance: "Important for paperwork, data entry, expense tracking, and organizing notes. Minor if you mostly chat.",
   },
   classify: {
-    suite: "deterministic", emoji: "🏷️", title: "Sorting things into buckets",
+    suite: "deterministic", icon: "tags", title: "Sorting things into buckets",
     tagline: "Can it label text consistently?",
     whatItChecks: "We give it text and a fixed set of labels — positive/negative, spam/not-spam, which language — and check it picks the right one.",
     highScoreMeans: "It can triage and sort streams of text for you the same way every time, instead of being right 7 times out of 10.",
@@ -63,7 +63,7 @@ export const GROUPS: Record<string, GroupGuide> = {
     relevance: "Useful if you deal with lots of incoming messages, reviews, or tickets. Skip if you don't.",
   },
   toolcall: {
-    suite: "deterministic", emoji: "🧩", title: "Clean structured output (JSON)",
+    suite: "deterministic", icon: "puzzle", title: "Clean structured output (JSON)",
     tagline: "Can it produce the exact format other software needs?",
     whatItChecks: "We ask it to output well-formed JSON with the right shape — the kind apps and automations require. We check the structure and values are correct.",
     highScoreMeans: "It can plug into other software and automations without breaking them. This is the plumbing behind 'AI that does things' — get it wrong and the whole automation jams.",
@@ -71,7 +71,7 @@ export const GROUPS: Record<string, GroupGuide> = {
     relevance: "Crucial if you want AI to drive other tools or automations. Minor if you only chat with it.",
   },
   notify: {
-    suite: "agentic", emoji: "📣", title: "Following rules and acting correctly",
+    suite: "agentic", icon: "megaphone", title: "Following rules and acting correctly",
     tagline: "Can it follow your format AND take the right action?",
     whatItChecks: "We hand it a 'skill' (instructions for using an API) and a task. It must (1) reply in the EXACT format we asked, and (2) produce a real command that we actually run and verify. It only passes if BOTH are right.",
     highScoreMeans: "It can be trusted as an assistant that does things — sends the message, files the ticket, hits the API — by your rules, instead of just describing what it would do. A model can be 'smart' and still fail here, which makes it useless as an agent.",
@@ -79,7 +79,7 @@ export const GROUPS: Record<string, GroupGuide> = {
     relevance: "Essential if you're building or relying on AI agents, assistants, or automations. Less relevant if you only want a chatbot.",
   },
   search: {
-    suite: "agentic", emoji: "🛰️", title: "Building the right tool request",
+    suite: "agentic", icon: "radar", title: "Building the right tool request",
     tagline: "Can it turn your ask into a correct API call?",
     whatItChecks: "Given a tool's instructions, it must construct the exact request (right endpoint, right parameters) for what you asked — and we verify the call that actually goes out.",
     highScoreMeans: "It correctly translates plain requests into precise tool actions (the right query, the right filters), so the automation fetches what you meant — not something close-but-wrong.",
@@ -87,7 +87,7 @@ export const GROUPS: Record<string, GroupGuide> = {
     relevance: "Matters for agents and integrations that query tools on your behalf.",
   },
   write: {
-    suite: "subjective", emoji: "✍️", title: "Writing & ideas (you decide)",
+    suite: "subjective", icon: "pen", title: "Writing & ideas (you decide)",
     tagline: "Whose writing do YOU actually prefer?",
     whatItChecks: "There's no automatic score. The model rewrites an email, brainstorms ideas, or explains a concept; you read each model's version side-by-side with names hidden and pick the best.",
     highScoreMeans: "A high pick-rate means YOU personally find its writing best — which is the only thing that matters for your own day-to-day writing. The blind test stops a brand name from swaying you.",
@@ -98,7 +98,7 @@ export const GROUPS: Record<string, GroupGuide> = {
 
 export function groupGuide(group: string): GroupGuide {
   return GROUPS[group] ?? {
-    suite: "deterministic", emoji: "🧪", title: group,
+    suite: "deterministic", icon: "flask", title: group,
     tagline: "Custom test group.",
     whatItChecks: "A custom set of test items you added.",
     highScoreMeans: "Higher pass rates mean the model handles these specific tasks more reliably.",
@@ -115,7 +115,7 @@ export function resolveGuide(group: string, items: { suite: string; config: stri
       const c = JSON.parse(it.config);
       if (c._guide && (c._guide.title || c._guide.highScoreMeans)) {
         return {
-          suite: it.suite, emoji: "🧪",
+          suite: it.suite, icon: "flask",
           title: c._guide.title ?? group,
           tagline: "Your custom test.",
           whatItChecks: "A custom test you added in the Build tab.",

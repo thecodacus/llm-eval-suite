@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, Catalog, Item, Suite } from "../api";
+import { Icon } from "../icons";
 
 // helpers to parse the friendly form fields into stored config shapes
 const parseKV = (text: string) =>
@@ -35,7 +36,8 @@ export default function Build({ onSaved }: { onSaved?: () => void }) {
   const [cat, setCat] = useState<Catalog | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [f, setF] = useState<FormState>(blank);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const warn = (text: string) => setMsg({ text, ok: false });
 
   const load = () => api.items().then(setItems);
   useEffect(() => { api.catalog().then(setCat); load(); }, []);
@@ -73,17 +75,17 @@ export default function Build({ onSaved }: { onSaved?: () => void }) {
   }
 
   const save = async () => {
-    setMsg("");
-    if (!f.task_group.trim()) return setMsg("⚠ give the test a group name");
-    if (!f.prompt.trim()) return setMsg("⚠ prompt is required");
+    setMsg(null);
+    if (!f.task_group.trim()) return warn("Give the test a group name");
+    if (!f.prompt.trim()) return warn("Prompt is required");
     let config: any;
-    try { config = buildConfig(); } catch (e: any) { return setMsg(`⚠ invalid JSON in a field: ${e.message}`); }
+    try { config = buildConfig(); } catch (e: any) { return warn(`Invalid JSON in a field: ${e.message}`); }
     try {
       if (f.id) await api.updateItem(f.id, f.suite, f.task_group.trim(), config);
       else await api.createItem(f.suite, f.task_group.trim(), config);
-      setMsg("✓ saved"); setF({ ...blank, suite: f.suite, task_group: f.task_group });
+      setMsg({ text: "Saved", ok: true }); setF({ ...blank, suite: f.suite, task_group: f.task_group });
       load(); onSaved?.();
-    } catch (e: any) { setMsg(`⚠ ${e.message}`); }
+    } catch (e: any) { warn(e.message); }
   };
 
   const edit = (it: Item) => {
@@ -232,9 +234,9 @@ export default function Build({ onSaved }: { onSaved?: () => void }) {
           </details>
 
           <div className="row" style={{ marginTop: 16 }}>
-            <button className="btn" onClick={save}>{f.id ? "Update test" : "Add test"}</button>
+            <button className="btn" onClick={save}><Icon name={f.id ? "pencil" : "plus"} size={15} /> {f.id ? "Update test" : "Add test"}</button>
             {f.id && <button className="btn ghost" onClick={() => setF(blank)}>Cancel edit</button>}
-            {msg && <span className={msg.startsWith("✓") ? "pass" : "fail"}>{msg}</span>}
+            {msg && <span className={msg.ok ? "pass" : "fail"} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name={msg.ok ? "check" : "warn"} size={15} />{msg.text}</span>}
           </div>
         </div>
       </div>
@@ -253,9 +255,9 @@ export default function Build({ onSaved }: { onSaved?: () => void }) {
                   <div key={it.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}>
                     <div style={{ fontSize: 13 }}><b>{it.task_group}</b> <span className="muted">#{it.id}</span></div>
                     <div className="muted mono" style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.prompt}</div>
-                    <div className="row" style={{ gap: 6, marginTop: 4 }}>
-                      <button className="btn ghost" style={{ padding: "3px 10px", fontSize: 12 }} onClick={() => edit(it)}>edit</button>
-                      <button className="btn ghost" style={{ padding: "3px 10px", fontSize: 12 }} onClick={() => del(it.id)}>✕</button>
+                    <div className="row" style={{ gap: 6, marginTop: 6 }}>
+                      <button className="btn ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => edit(it)}><Icon name="pencil" size={13} /> edit</button>
+                      <button className="btn ghost" style={{ padding: "4px 9px", fontSize: 12 }} onClick={() => del(it.id)}><Icon name="trash" size={13} /></button>
                     </div>
                   </div>
                 );
