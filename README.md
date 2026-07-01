@@ -77,6 +77,26 @@ Notes:
 3. **Results** tab — live leaderboard (pass% · tok/s) for deterministic/agentic; for
    subjective, open the blinded review and click winners.
 
+## Import hard public benchmarks
+The seeded tests are hard, but you can pull in real "models struggle" benchmarks
+from HuggingFace with `tools/import_hf.py` (pure stdlib — no `datasets`/`pandas`):
+
+```bash
+python tools/import_hf.py --dataset aime                    # 30 AIME 2025 problems → numeric
+python tools/import_hf.py --dataset gpqa --limit 50         # GPQA Diamond (PhD science) → mc letter
+python tools/import_hf.py --dataset mmlu_pro --limit 60 --category physics
+python tools/import_hf.py --dataset mmlu_pro --list-categories
+python tools/import_hf.py --dataset aime --base http://your-server:8080   # target a remote instance
+```
+
+It POSTs into the running suite via `/api/items/bulk`. Notes:
+- Imported items are keyed with `_import` (not `_seed`), so they **persist across
+  redeploys** and are never touched by seed reconciliation. Re-running is idempotent.
+- AIME → `numeric`; GPQA / MMLU-Pro → the `mc_letter` extractor + `exact` (robust
+  single-letter grading). All three land as their own task groups on the Dashboard.
+- Datasets carry their own licenses (AIME's is non-commercial), which is why this
+  pulls them into **your** instance at runtime rather than baking them into the image.
+
 ## Develop locally
 ```bash
 cd server && npm install && npm run dev   # API on :8080 (DB_PATH=./data/evals.db)

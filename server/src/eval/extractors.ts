@@ -49,10 +49,22 @@ const jsonBlock: Extractor = (t) => {
   return null;
 };
 
+// Multiple-choice: pull the answer LETTER (A–J) robustly. Prefers an explicit
+// marker ("Answer: C", "#### C", "(C)"), else the last standalone capital letter.
+const mcLetter: Extractor = (t) => {
+  let m = t.match(/(?:answer|option|choice)\s*(?:is|:|=)?\s*\(?([A-J])\b/i)
+    || t.match(/####\s*\(?([A-J])\b/)
+    || t.match(/\bthe answer is\s*\(?([A-J])\b/i);
+  if (m) return m[1].toUpperCase();
+  const all = t.match(/\b([A-J])\b/g);
+  return all ? all[all.length - 1].toUpperCase() : null;
+};
+
 export const EXTRACTORS: Record<string, Extractor> = {
   raw: (t) => String(t).trim(),
   last_number: lastNumber,
   boxed,
   code_block: codeBlock,
   json_block: jsonBlock,
+  mc_letter: mcLetter,
 };

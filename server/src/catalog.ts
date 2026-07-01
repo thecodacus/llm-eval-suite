@@ -7,6 +7,7 @@ export const EXTRACTOR_CATALOG = [
   { id: "boxed", label: "Final / boxed answer", desc: "Pull a \\boxed{…}, a '#### x', or an 'Answer: x' value." },
   { id: "code_block", label: "Code block", desc: "Pull the fenced ``` code block (falls back to whole reply)." },
   { id: "json_block", label: "JSON in reply", desc: "Parse the first JSON object/array in the reply." },
+  { id: "mc_letter", label: "Multiple-choice letter", desc: "Pull the answer letter A–J (prefers 'Answer: C' / '#### C', else last standalone letter)." },
 ];
 
 export const GRADER_CATALOG = [

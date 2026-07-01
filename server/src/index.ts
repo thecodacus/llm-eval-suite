@@ -56,6 +56,27 @@ app.post("/api/items", async (req, reply) => {
   return { id: info.lastInsertRowid };
 });
 
+// Bulk import (used by tools/import_hf.py). Idempotent by config._import so
+// re-running skips dupes. NOTE: uses _import (not _seed) so seed reconciliation
+// never treats these as retired seed items and deletes them on redeploy.
+app.post("/api/items/bulk", async (req, reply) => {
+  const items = ((req.body as any)?.items ?? []) as any[];
+  const findImport = db.prepare("SELECT 1 FROM items WHERE json_extract(config,'$._import') = ?");
+  const ins = db.prepare("INSERT INTO items (suite,task_group,config) VALUES (?,?,?)");
+  let added = 0, skipped = 0;
+  const tx = db.transaction(() => {
+    for (const it of items) {
+      const cfg = typeof it.config === "string" ? JSON.parse(it.config) : it.config;
+      if (cfg._import && findImport.get(cfg._import)) { skipped++; continue; }
+      ins.run(it.suite, it.task_group, JSON.stringify(cfg));
+      added++;
+    }
+  });
+  tx();
+  reply.code(201);
+  return { added, skipped };
+});
+
 app.put("/api/items/:id", async (req) => {
   const it = req.body as any;
   db.prepare("UPDATE items SET suite=?, task_group=?, config=? WHERE id=?").run(
