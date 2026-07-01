@@ -78,24 +78,29 @@ Notes:
    subjective, open the blinded review and click winners.
 
 ## Import hard public benchmarks
-The seeded tests are hard, but you can pull in real "models struggle" benchmarks
-from HuggingFace with `tools/import_hf.py` (pure stdlib — no `datasets`/`pandas`):
+Pull real "models struggle" benchmarks from HuggingFace — great yardsticks for
+quant/family comparisons (hard reasoning degrades first under quantization).
 
+**In the app:** Build tab → **Import benchmark** → pick GPQA Diamond / MMLU-Pro /
+AIME 2025 → Import. The server fetches from HuggingFace at run time.
+
+**Or via CLI** (`tools/import_hf.py`, pure stdlib — no `datasets`/`pandas`):
 ```bash
-python tools/import_hf.py --dataset aime                    # 30 AIME 2025 problems → numeric
-python tools/import_hf.py --dataset gpqa --limit 50         # GPQA Diamond (PhD science) → mc letter
-python tools/import_hf.py --dataset mmlu_pro --limit 60 --category physics
-python tools/import_hf.py --dataset mmlu_pro --list-categories
-python tools/import_hf.py --dataset aime --base http://your-server:8080   # target a remote instance
+python tools/import_hf.py --dataset gpqa                     # GPQA Diamond (198, PhD science) → mc letter
+python tools/import_hf.py --dataset mmlu_pro --limit 100     # MMLU-Pro, sampled across all domains
+python tools/import_hf.py --dataset aime                     # 30 AIME 2025 problems → numeric
+python tools/import_hf.py --dataset gpqa --base http://your-server:8080   # target a remote instance
 ```
 
-It POSTs into the running suite via `/api/items/bulk`. Notes:
+Notes:
 - Imported items are keyed with `_import` (not `_seed`), so they **persist across
   redeploys** and are never touched by seed reconciliation. Re-running is idempotent.
-- AIME → `numeric`; GPQA / MMLU-Pro → the `mc_letter` extractor + `exact` (robust
-  single-letter grading). All three land as their own task groups on the Dashboard.
-- Datasets carry their own licenses (AIME's is non-commercial), which is why this
-  pulls them into **your** instance at runtime rather than baking them into the image.
+- AIME → `numeric`; GPQA / MMLU-Pro → the `mc_letter` extractor + `exact`. Each lands
+  as its own task group (`aime-2025`, `gpqa-diamond`, `mmlu-pro`) on the Dashboard.
+- MMLU-Pro is category-ordered, so it's **stratified-sampled** across all domains.
+- Fetched into **your** instance at run time (needs outbound internet to
+  huggingface.co) rather than baked into the image — datasets carry their own
+  licenses (AIME's is non-commercial).
 
 ## Develop locally
 ```bash

@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { db } from "./db.js";
 import { startRun } from "./runner.js";
 import { EXTRACTOR_CATALOG, GRADER_CATALOG, SUITE_CATALOG } from "./catalog.js";
+import { importBenchmark, IMPORT_CATALOG } from "./import.js";
 import type { ModelRow, ItemRow, Suite } from "./types.js";
 
 const app = Fastify({ logger: false });
@@ -13,7 +14,37 @@ const app = Fastify({ logger: false });
 /* ---------------- catalog (verify methods for the Test Builder) ---------------- */
 app.get("/api/catalog", async () => ({
   suites: SUITE_CATALOG, extractors: EXTRACTOR_CATALOG, graders: GRADER_CATALOG,
+  benchmarks: IMPORT_CATALOG,
 }));
+
+/* ---------------- import hard benchmarks from HuggingFace (server-side) ---------------- */
+function bulkInsert(items: Array<{ suite: string; task_group: string; config: any }>) {
+  const findImport = db.prepare("SELECT 1 FROM items WHERE json_extract(config,'$._import') = ?");
+  const ins = db.prepare("INSERT INTO items (suite,task_group,config) VALUES (?,?,?)");
+  let added = 0, skipped = 0;
+  db.transaction(() => {
+    for (const it of items) {
+      const cfg = typeof it.config === "string" ? JSON.parse(it.config) : it.config;
+      if (cfg._import && findImport.get(cfg._import)) { skipped++; continue; }
+      ins.run(it.suite, it.task_group, JSON.stringify(cfg));
+      added++;
+    }
+  })();
+  return { added, skipped };
+}
+
+app.post("/api/import", async (req, reply) => {
+  const { dataset, limit } = req.body as { dataset: string; limit?: number };
+  let items;
+  try {
+    items = await importBenchmark(dataset, { limit });
+  } catch (e: any) {
+    reply.code(502);
+    return { error: `import failed: ${e?.message ?? e}. (Needs outbound internet to huggingface.co.)` };
+  }
+  const { added, skipped } = bulkInsert(items);
+  return { added, skipped, total: items.length };
+});
 
 /* ---------------- models ---------------- */
 app.get("/api/models", async () => db.prepare("SELECT * FROM models ORDER BY id").all());
@@ -61,20 +92,8 @@ app.post("/api/items", async (req, reply) => {
 // never treats these as retired seed items and deletes them on redeploy.
 app.post("/api/items/bulk", async (req, reply) => {
   const items = ((req.body as any)?.items ?? []) as any[];
-  const findImport = db.prepare("SELECT 1 FROM items WHERE json_extract(config,'$._import') = ?");
-  const ins = db.prepare("INSERT INTO items (suite,task_group,config) VALUES (?,?,?)");
-  let added = 0, skipped = 0;
-  const tx = db.transaction(() => {
-    for (const it of items) {
-      const cfg = typeof it.config === "string" ? JSON.parse(it.config) : it.config;
-      if (cfg._import && findImport.get(cfg._import)) { skipped++; continue; }
-      ins.run(it.suite, it.task_group, JSON.stringify(cfg));
-      added++;
-    }
-  });
-  tx();
   reply.code(201);
-  return { added, skipped };
+  return bulkInsert(items);
 });
 
 app.put("/api/items/:id", async (req) => {

@@ -8,10 +8,9 @@ Items are keyed with `_import` (NOT `_seed`), so they persist across redeploys
 and are never touched by the seed reconciliation. Re-running is idempotent.
 
 Usage:
+    python tools/import_hf.py --dataset gpqa            # GPQA Diamond (198)
+    python tools/import_hf.py --dataset mmlu_pro --limit 100   # sampled across all domains
     python tools/import_hf.py --dataset aime            # 30 AIME 2025 problems
-    python tools/import_hf.py --dataset gpqa --limit 50
-    python tools/import_hf.py --dataset mmlu_pro --limit 60 --category physics
-    python tools/import_hf.py --dataset mmlu_pro --list-categories
     python tools/import_hf.py --dataset aime --base http://your-server:8080
 
 Datasets carry their own licenses (AIME's is non-commercial) — this pulls them
@@ -23,6 +22,7 @@ import urllib.parse
 import urllib.request
 
 VIEWER = "https://datasets-server.huggingface.co/rows"
+SIZE = "https://datasets-server.huggingface.co/size"
 
 LETTERS = "ABCDEFGHIJ"
 
@@ -39,6 +39,32 @@ def fetch_rows(dataset, config, split, limit, offset=0):
         if not batch:
             break
         out += [b["row"] for b in batch]
+    return out[:limit]
+
+
+def fetch_size(dataset, config, split):
+    try:
+        qs = urllib.parse.urlencode({"dataset": dataset, "config": config, "split": split})
+        with urllib.request.urlopen(f"{SIZE}?{qs}", timeout=30) as r:
+            splits = json.loads(r.read()).get("size", {}).get("splits", [])
+        hit = next((x for x in splits if x.get("split") == split), splits[0] if splits else {})
+        return hit.get("num_rows", 0)
+    except Exception:
+        return 0
+
+
+def fetch_stratified(dataset, config, split, limit):
+    """Spread the sample across the dataset (some sets are ordered by category)."""
+    total = fetch_size(dataset, config, split)
+    if not total or total <= limit:
+        return fetch_rows(dataset, config, split, limit)
+    windows = min(limit, 20)
+    per = -(-limit // windows)  # ceil
+    out = []
+    for i in range(windows):
+        if len(out) >= limit:
+            break
+        out += fetch_rows(dataset, config, split, per, (i * total) // windows)
     return out[:limit]
 
 
@@ -93,8 +119,8 @@ def mmlu_pro_item(row, i):
 
 ADAPTERS = {
     "aime": {"dataset": "yentinglin/aime_2025", "config": "default", "split": "train", "convert": aime_item, "default_limit": 30},
-    "gpqa": {"dataset": "fingertap/GPQA-Diamond", "config": "default", "split": "test", "convert": gpqa_item, "default_limit": 50},
-    "mmlu_pro": {"dataset": "TIGER-Lab/MMLU-Pro", "config": "default", "split": "test", "convert": mmlu_pro_item, "default_limit": 60},
+    "gpqa": {"dataset": "fingertap/GPQA-Diamond", "config": "default", "split": "test", "convert": gpqa_item, "default_limit": 198},
+    "mmlu_pro": {"dataset": "TIGER-Lab/MMLU-Pro", "config": "default", "split": "test", "convert": mmlu_pro_item, "default_limit": 100, "stratified": True},
 }
 
 
@@ -112,28 +138,18 @@ def main():
     ap.add_argument("--base", default="http://localhost:8080", help="eval suite base URL")
     ap.add_argument("--limit", type=int, help="how many items to import")
     ap.add_argument("--offset", type=int, default=0)
-    ap.add_argument("--category", help="mmlu_pro only: filter to a category")
-    ap.add_argument("--list-categories", action="store_true", help="mmlu_pro: print categories and exit")
     ap.add_argument("--dry-run", action="store_true", help="convert but don't POST; print a sample")
     args = ap.parse_args()
 
     a = ADAPTERS[args.dataset]
     limit = args.limit or a["default_limit"]
 
-    if args.list_categories and args.dataset == "mmlu_pro":
-        rows = fetch_rows(a["dataset"], a["config"], a["split"], 400)
-        print(sorted({r["category"] for r in rows}))
-        return
-
-    # over-fetch when filtering by category so we still hit `limit`
-    fetch_n = limit * 8 if args.category else limit
-    rows = fetch_rows(a["dataset"], a["config"], a["split"], fetch_n, args.offset)
-    if args.category:
-        rows = [r for r in rows if r.get("category") == args.category][:limit]
+    if a.get("stratified"):
+        rows = fetch_stratified(a["dataset"], a["config"], a["split"], limit)
     else:
-        rows = rows[:limit]
+        rows = fetch_rows(a["dataset"], a["config"], a["split"], limit, args.offset)
 
-    items = [a["convert"](r, i + args.offset) for i, r in enumerate(rows)]
+    items = [a["convert"](r, i) for i, r in enumerate(rows)]
     print(f"prepared {len(items)} items from {a['dataset']}")
 
     if args.dry_run:

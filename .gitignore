@@ -10,3 +10,6 @@ data/
 
 # tsc incremental build cache
 *.tsbuildinfo
+
+# never track Claude local state (persist-agent writes session transcripts here)
+.claude/

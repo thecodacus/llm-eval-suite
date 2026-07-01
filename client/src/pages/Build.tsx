@@ -29,6 +29,7 @@ const blank: FormState = {
 };
 
 const SUITE_LABEL: Record<string, string> = { deterministic: "Auto-graded", agentic: "Agentic", subjective: "Subjective" };
+const BENCH_LABEL: Record<string, string> = { gpqa: "GPQA Diamond", mmlu_pro: "MMLU-Pro", aime: "AIME 2025" };
 const PAGE = 12;
 
 export default function Build() {
@@ -42,6 +43,13 @@ export default function Build() {
   const [suiteF, setSuiteF] = useState<"all" | Suite>("all");
   const [groupF, setGroupF] = useState<string>("all");
   const [page, setPage] = useState(0);
+
+  // benchmark import
+  const [impOpen, setImpOpen] = useState(false);
+  const [impDs, setImpDs] = useState("gpqa");
+  const [impLimit, setImpLimit] = useState<number | "">("");
+  const [impBusy, setImpBusy] = useState(false);
+  const [impMsg, setImpMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   const load = () => api.items().then(setItems);
   useEffect(() => { api.catalog().then(setCat); load(); }, []);
@@ -124,12 +132,26 @@ export default function Build() {
 
   const del = async (id: number) => { if (confirm(`Delete test #${id}?`)) { await api.deleteItem(id); load(); } };
 
+  const bench = cat?.benchmarks?.find((b) => b.id === impDs);
+  const runImport = async () => {
+    setImpBusy(true); setImpMsg(null);
+    try {
+      const r = await api.importBenchmark(impDs, impLimit === "" ? undefined : Number(impLimit));
+      setImpMsg({ text: `Imported ${r.added} new (${r.skipped} already present) from ${BENCH_LABEL[impDs] ?? impDs}.`, ok: true });
+      load();
+    } catch (e: any) { setImpMsg({ text: e.message, ok: false }); }
+    finally { setImpBusy(false); }
+  };
+
   return (
     <>
       <div className="panel">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h2 className="sm">Tests <span className="muted">({filtered.length}{filtered.length !== items.length ? ` of ${items.length}` : ""})</span></h2>
-          <button className="btn" onClick={openNew}><Icon name="plus" size={15} /> Add test</button>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn ghost" onClick={() => { setImpMsg(null); setImpOpen(true); }}><Icon name="book" size={15} /> Import benchmark</button>
+            <button className="btn" onClick={openNew}><Icon name="plus" size={15} /> Add test</button>
+          </div>
         </div>
 
         <div className="row" style={{ marginTop: 12 }}>
@@ -182,6 +204,27 @@ export default function Build() {
           </div>
         )}
       </div>
+
+      <Modal open={impOpen} onClose={() => setImpOpen(false)} title="Import a hard benchmark">
+        <p className="muted" style={{ fontSize: 13 }}>
+          Pulls the benchmark from HuggingFace into this instance at run time (not stored in the repo). These are where quantization degrades first — ideal for quant/family comparisons. Needs outbound internet to huggingface.co.
+        </p>
+        <div style={{ marginTop: 12 }}>
+          <Label>Benchmark</Label>
+          <select value={impDs} onChange={(e) => setImpDs(e.target.value)} style={{ width: "100%" }}>
+            {(cat?.benchmarks ?? []).map((b) => <option key={b.id} value={b.id}>{BENCH_LABEL[b.id] ?? b.id} — {b.dataset}</option>)}
+          </select>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <Label>How many <span className="muted">(blank = default {bench?.defaultLimit}; MMLU-Pro is sampled across all domains)</span></Label>
+          <input type="number" value={impLimit} onChange={(e) => setImpLimit(e.target.value === "" ? "" : Number(e.target.value))} placeholder={String(bench?.defaultLimit ?? "")} style={{ width: 220 }} />
+        </div>
+        <div className="row" style={{ marginTop: 16 }}>
+          <button className="btn" disabled={impBusy} onClick={runImport}><Icon name="book" size={15} /> {impBusy ? "Importing…" : "Import"}</button>
+          <button className="btn ghost" onClick={() => setImpOpen(false)}>Close</button>
+          {impMsg && <span className={impMsg.ok ? "pass" : "fail"} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name={impMsg.ok ? "check" : "warn"} size={15} />{impMsg.text}</span>}
+        </div>
+      </Modal>
 
       <Modal open={open} onClose={() => setOpen(false)} title={f.id ? `Edit test #${f.id}` : "Add a test"}>
         <div className="row">

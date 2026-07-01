@@ -23,6 +23,7 @@ export interface Catalog {
   suites: { id: string; label: string; desc: string }[];
   extractors: { id: string; label: string; desc: string }[];
   graders: { id: string; label: string; desc: string; answerHint: string; answerType: string; suggestExtractor: string }[];
+  benchmarks?: { id: string; dataset: string; defaultLimit: number }[];
 }
 export interface Dashboard {
   byModel: { model_id: string; pass: number; n: number; pct: number; avg_tok_s: number | null }[];
@@ -48,6 +49,8 @@ export const api = {
   updateItem: (id: number, suite: Suite, task_group: string, config: any) =>
     j(`/api/items/${id}`, { method: "PUT", body: JSON.stringify({ suite, task_group, config }) }),
   deleteItem: (id: number) => j(`/api/items/${id}`, { method: "DELETE" }),
+  importBenchmark: (dataset: string, limit?: number) =>
+    j<{ added: number; skipped: number; total: number }>("/api/import", { method: "POST", body: JSON.stringify({ dataset, limit }) }),
   dashboard: () => j<Dashboard>("/api/dashboard"),
   startRun: (suite: Suite, modelIds: string[], taskGroups?: string[]) =>
     j<{ runId: number }>("/api/runs", { method: "POST", body: JSON.stringify({ suite, modelIds, taskGroups }) }),
